@@ -86,19 +86,40 @@ to plik `configuration.yaml` z tego katalogu wrzuć do `/config/packages/`
 wczytywany jako osobny pakiet — nie trzeba dopisywać `!include` do
 `configuration.yaml`.
 
-`automation:` **nie może** żyć w pakiecie (HA tego nie dopuszcza), więc
-plik `automation.yaml` wklejasz do `/config/automation.yaml` i na końcu
-dopisujesz:
+`automation:` **nie może** żyć w pakiecie (HA tego nie dopuszcza).
+
+Automatyzacje dodajesz do swojego pliku `automations.yaml` **wklejając je
+na końcu jako kolejne elementy listy** (kolumna 0, na tym samym poziomie
+co `- id:`):
 
 ```yaml
-!include tgerdn_automation.yaml
+# /config/automations.yaml
+- id: '1791711498340'
+  alias: Twoja dotychczasowa automatyzacja
+  ...
+
+# --- ponizej wklej zawartosc tgerdn_v2_automation.yaml ---
+- id: tge_v2_charging_car
+  ...
 ```
 
-albo — jeśli wolisz osobne pliki — `/config/automations/` + w `configuration.yaml`:
-
-```yaml
-automation: !include_dir_list automations/
-```
+> ⚠️ **Nie używaj `!include` wewnątrz listy.** `!include` w miejscu elementu
+> listy jest błędny składniowo (HA odrzuci cały plik z błędem
+> „could not find expected ':'"). `!include` działa tylko jako **jedyna**
+> zawartość pliku albo jako wartość klucza:
+>
+> ```yaml
+> # tak NIE dziala
+> - id: 'moja_automatyzacja'
+> !include tgerdn_v2_automation.yaml
+>
+> # tak dziala - osobny katalog
+> automation: !include_dir_list automations/
+> ```
+>
+> Jeśli wolisz osobne pliki: przenieś `automations.yaml` do
+> `/config/automations/` i w `configuration.yaml` użyj
+> `automation: !include_dir_list automations/`.
 
 W `configuration.yaml` popraw tylko dwie rzeczy:
 
