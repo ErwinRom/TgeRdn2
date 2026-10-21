@@ -1,0 +1,33 @@
+name: TGE RDN
+version: "2.0.0"
+slug: tgerdn
+description: >-
+  Pobiera ceny energii Fixing I z giełdy TGE, liczy plan ładowania auta
+  (5 najtańszych godzin doby) i zapisuje pliki JSON dla Home Assistant.
+url: https://github.com/ErwinRom/TgeRdn2
+startup: application
+boot: auto
+init: false
+arch:
+  - amd64
+  - armv7
+  - armhf
+  - aarch64
+options:
+  # Katalog na pliki JSON (musi byc w /config, zeby HA mogl je odczytac).
+  output_dir: /config/tgerdn
+  # Godziny pobierania cen (po przecinku), w strefie czasowej ponizej.
+  hour: "00:01,12:01"
+  # Ile godzin dziennie ladujemy w najtanszym oknie.
+  charging_hours: 5
+  # Strefa czasowa (wplywa na to, kiedy sa godziny 00:01 i 12:01).
+  timezone: Europe/Warsaw
+schema:
+  output_dir: str
+  hour: str
+  charging_hours: int
+  timezone: str
+map:
+  - type: homeassistant_config
+    read_only: false
+    path: /config

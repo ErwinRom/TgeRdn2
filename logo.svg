@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="768" height="256" viewBox="0 0 768 256">
+  <rect width="768" height="256" rx="28" fill="#123c32"/>
+  <path d="M154 35 83 140h46l-15 79 77-111h-48z" fill="#d8f36a"/>
+  <text x="245" y="133" fill="#ffffff" font-family="DejaVu Sans, sans-serif" font-size="66" font-weight="700">TGE RDN</text>
+  <text x="249" y="184" fill="#d8f36a" font-family="DejaVu Sans, sans-serif" font-size="23" font-weight="600">CENY ENERGII</text>
+  <text x="130" y="241" text-anchor="middle" fill="#ffffff" font-family="DejaVu Sans, sans-serif" font-size="21" font-weight="700">PLN</text>
+</svg>

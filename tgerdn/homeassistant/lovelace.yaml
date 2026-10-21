@@ -1,0 +1,376 @@
+# =============================================================================
+#  Karty Lovelace - TGE RDN
+# =============================================================================
+#
+#  Zmiany w stosunku do wersji v1:
+#    - ceny sa z marginesem dostawy (kolor = realny koszt, nie sam kurs)
+#    - plan ladowania jest w osobnej karcie (okno, koszt, oszczednosc)
+#    - wykresy czytaja `total_pln`; `rce_pln` (sam kurs Fixing I) tez jest
+#      w JSON-ie, jesli wolisz widziec kurs bez marzu dostawy
+#    - brak liczenia dat w JavaScript - daty pochodza z `dtime`
+# =============================================================================
+
+views:
+  - title: Kompas Energetyczny
+    path: kompas-energetyczny
+    type: sections
+    max_columns: 2
+    sections:
+      - type: grid
+        cards:
+          - type: vertical-stack
+            cards:
+              - type: heading
+                heading: Dzisiaj
+                heading_style: title
+                icon: mdi:compass-outline
+              - type: markdown
+                text_only: true
+                content: >
+                  <table role="presentation">
+                  <tr>
+                  <td width="44"><ha-icon
+                  icon="mdi:calendar-today"></ha-icon></td>
+                  <td><h1>{{ as_timestamp(now()) | timestamp_custom('%d.%m.%Y',
+                  local=True) }}</h1></td>
+                  </tr>
+                  </table>
+          - type: vertical-stack
+            cards:
+              - type: markdown
+                content: >-
+                  {% macro price_cell(entity_id, hour) -%}
+                    {%- set vals = state_attr(entity_id, 'fixing_i_prices') or [] -%}
+                    {%- set cell = (vals | selectattr('hour', 'equalto', hour + 1) | list) -%}
+                    {%- set cell = cell[0] if cell else none -%}
+                    {%- set price = none -%}
+                    {%- if cell and is_number(cell.total) -%}
+                      {%- set price = cell.total | float -%}
+                    {%- endif -%}
+                    {%- set fg = '#9CA3AF' -%}
+                  {%- if price is not none %}
+                    {%- if price < 0.45 %}
+                      {%- set fg = '#236B11' %}
+                    {%- elif price < 0.75 %}
+                      {%- set fg = '#98C21D' %}
+                    {%- elif price < 1.00 %}
+                      {%- set fg = '#F2C433' %}
+                    {%- else %}
+                      {%- set fg = '#E42314' %}
+                    {%- endif %}
+                  {%- endif %}
+                    <td align="center"
+                        title="{{ '%.2f'|format(price) if price is not none else 'Brak danych' }} PLN/kWh">
+                      <b>
+                        <font color="{{ fg }}" size="5">
+                          {{ "%02d"|format(hour) }}:00
+                        </font>
+                      </b>
+                    </td>
+                  {%- endmacro %}
+                  {% set entity_id = 'sensor.tge_rdn_cena_dzis' %}
+                  {% set data_fetched = state_attr(entity_id, 'data_fetched') %}
+                  {% if data_fetched is true %}
+                  <center>
+                  <table border="1" cellspacing="0" cellpadding="10"
+                  width="100%">
+                  {% for r in range(6) %}
+                    <tr>
+                    {% for c in range(4) %}
+                      {{ price_cell(entity_id, r * 4 + c) }}
+                    {% endfor %}
+                    </tr>
+                  {% endfor %}
+                  </table>
+                  <br>
+                  <small>
+                  Ostatnia aktualizacja:
+                  {{ as_timestamp(states[entity_id].last_updated)
+                     | timestamp_custom('%Y-%m-%d %H:%M:%S', local=True) }}
+                  </small>
+                  </center>
+                  {% else %}
+                  <center>
+                    <b>Brak danych</b>
+                  </center>
+                  {% endif %}
+                text_only: true
+            grid_options:
+              columns: 24
+              rows: auto
+        column_span: 1
+      - type: grid
+        cards:
+          - type: vertical-stack
+            cards:
+              - type: heading
+                heading: Jutro
+                heading_style: title
+                icon: mdi:weather-night-partly-cloudy
+              - type: markdown
+                text_only: true
+                content: >
+                  <table role="presentation">
+                  <tr>
+                  <td width="44"><ha-icon
+                  icon="mdi:calendar-arrow-right"></ha-icon></td>
+                  <td><h1>{{ as_timestamp(now() + timedelta(days=1)) |
+                  timestamp_custom('%d.%m.%Y', local=True) }}</h1></td>
+                  </tr>
+                  </table>
+          - type: vertical-stack
+            cards:
+              - type: markdown
+                content: >-
+                  {% macro price_cell(entity_id, hour) -%}
+                    {%- set vals = state_attr(entity_id, 'fixing_i_prices') or [] -%}
+                    {%- set cell = (vals | selectattr('hour', 'equalto', hour + 1) | list) -%}
+                    {%- set cell = cell[0] if cell else none -%}
+                    {%- set price = none -%}
+                    {%- if cell and is_number(cell.total) -%}
+                      {%- set price = cell.total | float -%}
+                    {%- endif -%}
+                    {%- set fg = '#9CA3AF' -%}
+                  {%- if price is not none %}
+                    {%- if price < 0.45 %}
+                      {%- set fg = '#236B11' %}
+                    {%- elif price < 0.75 %}
+                      {%- set fg = '#98C21D' %}
+                    {%- elif price < 1.00 %}
+                      {%- set fg = '#F2C433' %}
+                    {%- else %}
+                      {%- set fg = '#E42314' %}
+                    {%- endif %}
+                  {%- endif %}
+                    <td align="center"
+                        title="{{ '%.2f'|format(price) if price is not none else 'Brak danych' }} PLN/kWh">
+                      <b>
+                        <font color="{{ fg }}" size="5">
+                          {{ "%02d"|format(hour) }}:00
+                        </font>
+                      </b>
+                    </td>
+                  {%- endmacro %}
+                  {% set entity_id = 'sensor.tge_rdn_cena_jutro' %}
+                  {% set data_fetched = state_attr(entity_id, 'data_fetched') %}
+                  {% if data_fetched is true %}
+                  <center>
+                  <table border="1" cellspacing="0" cellpadding="10"
+                  width="100%">
+                  {% for r in range(6) %}
+                    <tr>
+                    {% for c in range(4) %}
+                      {{ price_cell(entity_id, r * 4 + c) }}
+                    {% endfor %}
+                    </tr>
+                  {% endfor %}
+                  </table>
+                  <br>
+                  <small>
+                  Ostatnia aktualizacja:
+                  {{ as_timestamp(states[entity_id].last_updated)
+                     | timestamp_custom('%Y-%m-%d %H:%M:%S', local=True) }}
+                  </small>
+                  </center>
+                  {% else %}
+                  <center>
+                    <b>Brak danych</b>
+                  </center>
+                  {% endif %}
+                text_only: true
+            grid_options:
+              columns: 24
+              rows: auto
+      - type: grid
+        column_span: 1
+        cards:
+          - type: markdown
+            content: >
+              <font color="#236B11" size="6">&#9632;</font>&nbsp; Zalecane
+              użytkowanie
+
+              <font color="#98C21D" size="6">&#9632;</font>&nbsp; Normalne
+              użytkowanie
+
+              <font color="#F2C433" size="6">&#9632;</font>&nbsp; Zalecane
+              oszczędzanie
+
+              <font color="#E42314" size="6">&#9632;</font>&nbsp; Wymagane
+              ograniczanie
+            text_only: true
+          - type: gauge
+            entity: sensor.tge_rdn_aktualna_cena
+            severity:
+              green: 0
+              yellow: 0.75
+              red: 1
+            needle: true
+            max: 1.5
+      - type: grid
+        column_span: 1
+        cards:
+          - type: heading
+            heading: Plan ładowania
+            heading_style: title
+            icon: mdi:car-battery-charging
+          - type: markdown
+            text_only: true
+            content: >-
+              {%- set plan = state_attr('sensor.tge_rdn_cena_dzis', 'plan') or {} -%}
+              {%- set charged = states('input_number.tge_ladowane_godziny') | float(0) -%}
+              {%- set hours = plan.get('hours', []) if plan is mapping else [] -%}
+              {%- set blocks = [] -%}
+              {%- for h in hours | sort -%}
+                {%- if blocks and h == blocks[-1][-1] + 1 -%}
+                  {%- set _ = blocks[-1].append(h) -%}
+                {%- else -%}
+                  {%- set _ = blocks.append([h]) -%}
+                {%- endif -%}
+              {%- endfor -%}
+              {%- set windows = [] -%}
+              {%- for block in blocks -%}
+                {%- set _ = windows.append('%02d:00-%02d:00' | format(block[0] - 1, block[-1])) -%}
+              {%- endfor -%}
+              <table role="presentation">
+                <tr>
+                  <td width="44"><ha-icon icon="mdi:clock-outline"></ha-icon></td>
+                  <td>Okno: <b>{{ windows | join(', ') if windows else 'brak danych' }}</b></td>
+                </tr>
+                <tr>
+                  <td><ha-icon icon="mdi:currency-pln"></ha-icon></td>
+                  <td>W oknie: <b>{{ '%.3f'|format(plan.get('cost_avg', 0)) }} PLN/kWh</b>
+                      (najdrożej w dobie: {{ '%.3f'|format(plan.get('cost_worst', 0)) }})</td>
+                </tr>
+                <tr>
+                  <td><ha-icon icon="mdi:chart-line"></ha-icon></td>
+                  <td>20 kWh w oknie: <b>{{ '%.2f'|format(plan.get('cost_avg', 0) * 20) }} zł</b>
+                      · oszczędność: {{ '%.2f'|format(plan.get('saving', 0) * 20) }} zł</td>
+                </tr>
+                <tr>
+                  <td><ha-icon icon="mdi:timer-sand"></ha-icon></td>
+                  <td>Naładowane dziś: <b>{{ '%.0f'|format(charged) }} h</b>
+                      z {{ plan.get('count', 0) }} h</td>
+                </tr>
+              </table>
+      - type: grid
+        cards:
+          - type: heading
+            heading: Pobór prądu
+            heading_style: title
+          - type: gauge
+            entity: sensor.shelly_em3_channel_a_current
+            max: 25
+            needle: false
+          - type: gauge
+            entity: sensor.shelly_em3_channel_b_current
+            max: 25
+            needle: false
+          - type: gauge
+            entity: sensor.shelly_em3_channel_c_current
+            max: 25
+    badges: []
+
+  - title: Ceny Energii
+    type: sections
+    max_columns: 2
+    sections:
+      - type: grid
+        cards:
+          - type: custom:apexcharts-card
+            header:
+              show: true
+              title: TGE RDN - ceny dzisiaj
+            graph_span: 24h
+            span:
+              start: day
+            yaxis:
+              - min: 0
+                decimals: 3
+                apex_config:
+                  title:
+                    text: PLN/kWh
+            apex_config:
+              xaxis:
+                labels:
+                  datetimeFormatter:
+                    hour: HH:mm
+              plotOptions:
+                bar:
+                  colors:
+                    ranges:
+                      - from: -1000000
+                        to: 0.449999
+                        color: '#236B11'
+                      - from: 0.45
+                        to: 0.749999
+                        color: '#98C21D'
+                      - from: 0.75
+                        to: 0.999999
+                        color: '#F2C433'
+                      - from: 1
+                        to: 1000000
+                        color: '#E42314'
+            series:
+              - entity: sensor.tge_rdn_cena_dzis
+                name: Cena
+                type: column
+                unit: PLN/kWh
+                float_precision: 3
+                data_generator: |
+                  const prices = entity.attributes.prices || [];
+
+                  return prices.map((p) => [
+                    new Date(p.dtime).getTime(),
+                    Number(p.total_pln ?? p.rce_pln)
+                  ]);
+      - type: grid
+        cards:
+          - type: custom:apexcharts-card
+            header:
+              show: true
+              title: TGE RDN - ceny jutro
+            graph_span: 24h
+            span:
+              start: day
+              offset: '+1d'
+            yaxis:
+              - min: 0
+                decimals: 3
+                apex_config:
+                  title:
+                    text: PLN/kWh
+            apex_config:
+              xaxis:
+                labels:
+                  datetimeFormatter:
+                    hour: HH:mm
+              plotOptions:
+                bar:
+                  colors:
+                    ranges:
+                      - from: -1000000
+                        to: 0.449999
+                        color: '#236B11'
+                      - from: 0.45
+                        to: 0.749999
+                        color: '#98C21D'
+                      - from: 0.75
+                        to: 0.999999
+                        color: '#F2C433'
+                      - from: 1
+                        to: 1000000
+                        color: '#E42314'
+            series:
+              - entity: sensor.tge_rdn_cena_jutro
+                name: Cena jutro
+                type: column
+                unit: PLN/kWh
+                float_precision: 3
+                data_generator: |
+                  const prices = entity.attributes.prices || [];
+
+                  return prices.map((p) => [
+                    new Date(p.dtime).getTime(),
+                    Number(p.total_pln ?? p.rce_pln)
+                  ]);
+        column_span: 2
