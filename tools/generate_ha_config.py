@@ -83,13 +83,16 @@ template:
         unique_id: {uid_reguly}
         state: "ok"
         attributes:
-          charging_hours: 5
-          charge_below: 0.2
-          stop_above: 0.4
-          max_charge_price: 0
-          window_margin: 0.05
-          day_margin: 0.28
-          window_hours: [0, 1, 2, 3, 4, 5, 13, 14, 22, 23]
+          # Kazda wartosc atrybutu template sensora musi byc SZTAKIEM
+          # (template'em) - HA odrzuca listy i liczby jako "template value
+          # should be a string". Renderowany JSON jest parsowany do listy.
+          charging_hours: "{{{{ 5 }}}}"
+          charge_below: "{{{{ 0.2 }}}}"
+          stop_above: "{{{{ 0.4 }}}}"
+          max_charge_price: "{{{{ 0 }}}}"
+          window_margin: "{{{{ 0.05 }}}}"
+          day_margin: "{{{{ 0.28 }}}}"
+          window_hours: "{{{{ [0, 1, 2, 3, 4, 5, 13, 14, 22, 23] }}}}" 
 
       # ---------------------------------------------------------------------
       # 2. Aktualna cena godziny + statystyki dnia.
