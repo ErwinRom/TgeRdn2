@@ -244,3 +244,4 @@ więc **stare szablony i karty działają bez zmian**. Nowe pola to `margin`
   (`today.json` / `tomorrow.json`) i brak sensora `tge_biezaca_cena_godzinowa`.
   Stare karty działają, bo klucze w JSON-ie zostały zachowane.
 # TgeRdn2
+# TgeRdn2
