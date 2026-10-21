@@ -245,3 +245,4 @@ więc **stare szablony i karty działają bez zmian**. Nowe pola to `margin`
   Stare karty działają, bo klucze w JSON-ie zostały zachowane.
 # TgeRdn2
 # TgeRdn2
+# TgeRdn2
