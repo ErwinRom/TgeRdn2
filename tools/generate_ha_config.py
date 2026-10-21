@@ -275,7 +275,6 @@ VARIANTS = {
 }
 
 IN_NUMBER_CONF = """    name: TGE v2 Ladowane godziny
-    unique_id: tgerdn_v2_ladowane_godziny
     min: 0
     max: 24
     step: 1
@@ -284,7 +283,6 @@ IN_NUMBER_CONF = """    name: TGE v2 Ladowane godziny
     icon: mdi:timer-sand"""
 
 IN_NUMBER_CONF_CANON = """      name: TGE Ladowane godziny
-      unique_id: tgerdn_ladowane_godziny
       min: 0
       max: 24
       step: 1

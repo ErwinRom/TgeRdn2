@@ -54,7 +54,6 @@ command_line:
 input_number:
   tgerdn_v2_ladowane_godziny:
     name: TGE v2 Ladowane godziny
-    unique_id: tgerdn_v2_ladowane_godziny
     min: 0
     max: 24
     step: 1
