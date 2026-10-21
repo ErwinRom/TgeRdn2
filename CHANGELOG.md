@@ -5,6 +5,16 @@ i `io.hass.version` w `Dockerfile` (muszą być zgodne), a tutaj trafia
 opis zmian. Supervisor HA porównuje `version` przy aktualizacji dodatku —
 bez zmiany numeru HA nie pobierze nowej wersji.
 
+## 2.1.2
+
+- **Usunieto `unique_id` z helpera `input_number`** - schema helpera nie zawiera
+  tego klucza i HA odrzucal cala konfiguracje bledem
+  `'unique_id' is an invalid option for 'input_number'`.
+- Dodano `tests/test_ha_config_keys.py` - sprawdza **kazdy klucz** w plikach
+  konfiguracyjnych wobec schematow HA (`command_line`, `input_number`,
+  `template`). Klucze, ktore HA odrzuca, sa teraz wykrywane przez testy,
+  a nie przez uzytkownika przy wklejaniu do HA.
+
 ## 2.1.1
 
 - **Poprawiono format plikow konfiguracyjnych Home Assistant** - wersja 2.1.0
