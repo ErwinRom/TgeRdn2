@@ -20,7 +20,7 @@
 command_line:
   - sensor:
       - name: TGE RDN Cena dzis
-        unique_id: tge_rdn_cena_dzis
+        unique_id: tgerdn_cena_dzis
         command: "cat /config/tgerdn/today.json"
         scan_interval: 300
         value_template: "{{ value_json.data_points if value_json.data_fetched else 'unknown' }}"
@@ -39,7 +39,7 @@ command_line:
 
   - sensor:
       - name: TGE RDN Cena jutro
-        unique_id: tge_rdn_cena_jutro
+        unique_id: tgerdn_cena_jutro
         command: "cat /config/tgerdn/tomorrow.json"
         scan_interval: 300
         value_template: "{{ value_json.data_points if value_json.data_fetched else 'unknown' }}"
@@ -62,7 +62,7 @@ command_line:
 input_number:
   - tge_ladowane_godziny:
       name: TGE Ladowane godziny
-      unique_id: tge_ladowane_godziny
+      unique_id: tgerdn_ladowane_godziny
       min: 0
       max: 24
       step: 1
@@ -76,8 +76,8 @@ template:
       # 1. Reguly - JEDNO miejsce na progi i marginesy.
       #    Zmiana taryfy to jedna edycja tego bloku.
       # ---------------------------------------------------------------------
-      - name: TGE RDN Reguly
-        unique_id: tge_rdn_reguly
+      - name: "TGE RDN Reguly"
+        unique_id: tgerdn_reguly
         state: "ok"
         attributes:
           # Ile godzin dziennie ladujemy w najtanszym oknie.
@@ -98,7 +98,7 @@ template:
       #    Ceny pochodza z JSON-a, w ktorym juz sa policzone z marginesem.
       # ---------------------------------------------------------------------
       - name: TGE RDN Aktualna cena
-        unique_id: tge_rdn_aktualna_cena
+        unique_id: tgerdn_aktualna_cena
         unit_of_measurement: "PLN/kWh"
         state_class: measurement
         state: >
@@ -131,6 +131,18 @@ template:
           plan_hours_count: >
             {{- (state_attr('sensor.tge_rdn_cena_dzis', 'plan') or {}).get('count', 0) -}}
 
+
+      - name: "TGE RDN Aktualna Cena Jutro"
+        unique_id: tgerdn_aktualna_cena_jutro
+        unit_of_measurement: "PLN/kWh"
+        state_class: measurement
+        state: >
+          {%- set prices = state_attr('sensor.tge_rdn_cena_jutro', 'fixing_i_prices') or [] -%}
+          {%- set cur = now().hour + 1 -%}
+          {%- set p = (prices | selectattr('hour', 'equalto', cur) | list) -%}
+          {%- set p = p[0] if p else none -%}
+          {{- p.total if p is not none else 'unavailable' -}}
+
   - binary_sensor:
       # ---------------------------------------------------------------------
       # 3. Czy teraz jestesmy w oknie najtanszych godzin?
@@ -143,7 +155,7 @@ template:
       #    zostaly w ciagu dnia - dzieki temu dobowy limit N jest dotrzymany.
       # ---------------------------------------------------------------------
       - name: TGE najtansze 5h
-        unique_id: tge_najtansze_5h
+        unique_id: tge_cheapest_5h_window
         device_class: power
         state: >
           {%- set rules = state_attr('sensor.tge_rdn_reguly', 'charging_hours') | int(5) -%}

@@ -1,0 +1,383 @@
+# =============================================================================
+#  TGE RDN v2 - widoki Lovelace
+# =============================================================================
+#
+#  Wklej jako NOWY widok (niczego nie usuwaj - stare widoki zostaja).
+#
+#  Tryb YAML (Plik -> Edytuj dashboard w YAML):
+#      dodaj te dwa widoki do listy "views:"
+#  Tryb interaktywny (karty w UI):
+#      dodaj nowa karte, wklej do niej tresc jednego widoku
+#      (bez sekcji "views:" i bez "type: sections" na najwyzszym poziomie)
+#
+#  Encje: sensor.tge_v2_* / binary_sensor.tge_v2_*
+# =============================================================================
+
+views:
+  - title: Kompas Energetyczny v2
+    path: kompas-energetyczny-v2
+    type: sections
+    max_columns: 2
+    sections:
+      - type: grid
+        cards:
+          - type: vertical-stack
+            cards:
+              - type: heading
+                heading: Dzisiaj
+                heading_style: title
+                icon: mdi:compass-outline
+              - type: markdown
+                text_only: true
+                content: >
+                  <table role="presentation">
+
+                  <tr>
+
+                  <td width="44"><ha-icon
+                  icon="mdi:calendar-today"></ha-icon></td>
+
+                  <td><h1>{{ now() | as_timestamp | timestamp_custom('%d.%m.%Y',
+                  local=True) }}</h1></td>
+
+                  </tr>
+
+                  </table>
+          - type: vertical-stack
+            cards:
+              - type: markdown
+                content: >-
+                  {% macro price_cell(entity_id, hour) -%}
+                    {%- set vals = state_attr(entity_id, 'fixing_i_prices') or [] -%}
+                    {%- set cell = (vals | selectattr('hour', 'equalto', hour + 1) | list) | first | default(none, true) -%}
+                    {%- set price = none -%}
+                    {%- if cell and is_number(cell.fixing_i_price_pln_kwh) -%}
+                      {%- set price = cell.fixing_i_price_pln_kwh | float -%}
+                    {%- endif -%}
+                    {%- set fg = '#9CA3AF' -%}
+                  {%- if price is not none %}
+                    {%- if price < 0.45 %}
+                      {# Zalecane oszczedzanie - Ciemnozielony #}
+                      {%- set fg = '#236B11' %}
+                    {%- elif price < 0.75 %}
+                      {# Zalecane uzytkowanie - Jasnozielony/Limonkowy #}
+                      {%- set fg = '#98C21D' %}
+                    {%- elif price < 1.00 %}
+                      {# Normalne uzytkowanie - Zolty/Bursztynowy #}
+                      {%- set fg = '#F2C433' %}
+                    {%- else %}
+                      {# Wymagane ograniczenie - Czerwony #}
+                      {%- set fg = '#E42314' %}
+                    {%- endif %}
+                  {%- endif %}
+                    <td align="center"
+                        title="{{ '%.2f'|format(price) if price is not none else 'Brak danych' }} PLN/kWh">
+                      <b>
+                        <font color="{{ fg }}" size="5">
+                          {{ "%02d"|format(hour) }}:00
+                        </font>
+                      </b>
+                    </td>
+                  {%- endmacro %}
+                  {% set entity_id = 'sensor.tge_v2_ceny_dzis' %}
+                  {% set data_fetched = state_attr(entity_id, 'data_fetched') %}
+                  {% if data_fetched is true %}
+                  <center>
+                  <table border="1" cellspacing="0" cellpadding="10"
+                  width="100%">
+                  {% for r in range(6) %}
+                    <tr>
+                    {% for c in range(4) %}
+                      {{ price_cell(entity_id, r * 4 + c) }}
+                    {% endfor %}
+                    </tr>
+                  {% endfor %}
+                  </table>
+                  <br>
+                  <small>
+                  Ostatnia aktualizacja:
+                  {{ states[entity_id].last_updated
+                     | as_timestamp | timestamp_custom('%Y-%m-%d %H:%M:%S', local=True) }}
+                  </small>
+                  </center>
+                  {% else %}
+                  <center>
+                    <b>Brak danych</b>
+                  </center>
+                  {% endif %}
+                text_only: true
+            grid_options:
+              columns: 24
+              rows: auto
+        column_span: 1
+      - type: grid
+        cards:
+          - type: vertical-stack
+            cards:
+              - type: heading
+                heading: Jutro
+                heading_style: title
+                icon: mdi:weather-night-partly-cloudy
+              - type: markdown
+                text_only: true
+                content: >
+                  <table role="presentation">
+
+                  <tr>
+
+                  <td width="44"><ha-icon
+                  icon="mdi:calendar-arrow-right"></ha-icon></td>
+
+                  <td><h1>{{ (now() + timedelta(days=1)) | as_timestamp |
+                  timestamp_custom('%d.%m.%Y', local=True) }}</h1></td>
+
+                  </tr>
+
+                  </table>
+          - type: vertical-stack
+            cards:
+              - type: markdown
+                content: >-
+                  {% macro price_cell(entity_id, hour) -%}
+                    {%- set vals = state_attr(entity_id, 'fixing_i_prices') or [] -%}
+                    {%- set cell = (vals | selectattr('hour', 'equalto', hour + 1) | list) | first | default(none, true) -%}
+                    {%- set price = none -%}
+                    {%- if cell and is_number(cell.fixing_i_price_pln_kwh) -%}
+                      {%- set price = cell.fixing_i_price_pln_kwh | float -%}
+                    {%- endif -%}
+                    {%- set fg = '#9CA3AF' -%}
+                  {%- if price is not none %}
+                    {%- if price < 0.45 %}
+                      {%- set fg = '#236B11' %}
+                    {%- elif price < 0.75 %}
+                      {%- set fg = '#98C21D' %}
+                    {%- elif price < 1.00 %}
+                      {%- set fg = '#F2C433' %}
+                    {%- else %}
+                      {%- set fg = '#E42314' %}
+                    {%- endif %}
+                  {%- endif %}
+                    <td align="center"
+                        title="{{ '%.2f'|format(price) if price is not none else 'Brak danych' }} PLN/kWh">
+                      <b>
+                        <font color="{{ fg }}" size="5">
+                          {{ "%02d"|format(hour) }}:00
+                        </font>
+                      </b>
+                    </td>
+                  {%- endmacro %}
+                  {% set entity_id = 'sensor.tge_v2_ceny_jutro' %}
+                  {% set data_fetched = state_attr(entity_id, 'data_fetched') %}
+                  {% if data_fetched is true %}
+                  <center>
+                  <table border="1" cellspacing="0" cellpadding="10"
+                  width="100%">
+                  {% for r in range(6) %}
+                    <tr>
+                    {% for c in range(4) %}
+                      {{ price_cell(entity_id, r * 4 + c) }}
+                    {% endfor %}
+                    </tr>
+                  {% endfor %}
+                  </table>
+                  <br>
+                  <small>
+                  Ostatnia aktualizacja:
+                  {{ states[entity_id].last_updated
+                     | as_timestamp | timestamp_custom('%Y-%m-%d %H:%M:%S', local=True) }}
+                  </small>
+                  </center>
+                  {% else %}
+                  <center>
+                    <b>Brak danych</b>
+                  </center>
+                  {% endif %}
+                text_only: true
+            grid_options:
+              columns: 24
+              rows: auto
+      - type: grid
+        column_span: 1
+        cards:
+          - type: markdown
+            content: >
+              <font color="#236B11" size="6">&#9632;</font>&nbsp; Zalecane
+              użytkowanie
+
+              <font color="#98C21D" size="6">&#9632;</font>&nbsp; Normalne
+              użytkowanie
+
+              <font color="#F2C433" size="6">&#9632;</font>&nbsp; Zalecane
+              oszczędzanie
+
+              <font color="#E42314" size="6">&#9632;</font>&nbsp; Wymagane
+              ograniczanie
+            text_only: true
+          - type: gauge
+            entity: sensor.tge_v2_aktualna_cena
+            severity:
+              green: 0
+              yellow: 0.75
+              red: 1
+            needle: true
+            max: 1.5
+          - type: markdown
+            title: Plan ładowania
+            content: >
+              {% set plan = state_attr('sensor.tge_v2_ceny_dzis', 'plan') or {} %}
+              {% set periods = plan.get('periods', []) %}
+              {% set charged = state_attr('binary_sensor.tge_v2_najtansze_5h', 'charged_hours') %}
+              {% set missing = state_attr('binary_sensor.tge_v2_najtansze_5h', 'missing_hours') %}
+              {% set in_window = is_state('binary_sensor.tge_v2_najtansze_5h', 'on') %}
+              <table role="presentation" width="100%">
+              <tr>
+              <td>Okno ładowania:</td>
+              <td><b>{{ periods | join(', ') }}</b></td>
+              </tr>
+              <tr>
+              <td>Stan:</td>
+              <td><b>{{ 'LADUJEMY' if in_window else 'poza oknem' }}</b></td>
+              </tr>
+              <tr>
+              <td>Naładowane godziny:</td>
+              <td>{{ charged | default(0, true) }} h
+              {%- if missing | int(0) > 0 %} (brakuje {{ missing }}){% endif %}</td>
+              </tr>
+              <tr>
+              <td>Najtańsza / najdroższa:</td>
+              <td>{{ '%.3f'|format(plan.get('cheapest_price', 0)) }} /
+              {{ '%.3f'|format(plan.get('dearest_price', 0)) }} PLN/kWh</td>
+              </tr>
+              <tr>
+              <td>Średnia doby:</td>
+              <td>{{ '%.3f'|format(plan.get('day_avg', 0)) }} PLN/kWh</td>
+              </tr>
+              <tr>
+              <td>Oszczędność w oknie:</td>
+              <td>{{ '%.3f'|format(plan.get('saving', 0)) }} PLN/kWh</td>
+              </tr>
+              </table>
+            text_only: true
+      - type: grid
+        cards:
+          - type: heading
+            heading: Pobór prądu
+            heading_style: title
+          - type: gauge
+            entity: sensor.shelly_em3_channel_a_current
+            max: 25
+            needle: false
+          - type: gauge
+            entity: sensor.shelly_em3_channel_b_current
+            max: 25
+            needle: false
+          - type: gauge
+            entity: sensor.shelly_em3_channel_c_current
+            max: 25
+            needle: false
+    badges: []
+  - title: Ceny Energii v2
+    path: ceny-energii-v2
+    type: sections
+    max_columns: 2
+    sections:
+      - type: grid
+        cards:
+          - type: custom:apexcharts-card
+            header:
+              show: true
+              title: TGE RDN - ceny dzisiaj
+            graph_span: 24h
+            span:
+              start: day
+            yaxis:
+              - min: 0
+                decimals: 3
+                apex_config:
+                  title:
+                    text: PLN/kWh
+            apex_config:
+              xaxis:
+                labels:
+                  datetimeFormatter:
+                    hour: HH:mm
+              plotOptions:
+                bar:
+                  colors:
+                    ranges:
+                      - from: -1000000
+                        to: 0.449999
+                        color: '#236B11'
+                      - from: 0.45
+                        to: 0.749999
+                        color: '#98C21D'
+                      - from: 0.75
+                        to: 0.999999
+                        color: '#F2C433'
+                      - from: 1
+                        to: 1000000
+                        color: '#E42314'
+            series:
+              - entity: sensor.tge_v2_ceny_dzis
+                name: Cena
+                type: column
+                unit: PLN/kWh
+                float_precision: 3
+                data_generator: |
+                  const prices = entity.attributes.prices || [];
+
+                  return prices.map((p) => [
+                    new Date(p.dtime).getTime(),
+                    Number(p.rce_pln)
+                  ]);
+      - type: grid
+        cards:
+          - type: custom:apexcharts-card
+            header:
+              show: true
+              title: TGE RDN - ceny jutro
+            graph_span: 24h
+            span:
+              start: day
+              offset: '+1d'
+            yaxis:
+              - min: 0
+                decimals: 3
+                apex_config:
+                  title:
+                    text: PLN/kWh
+            apex_config:
+              xaxis:
+                labels:
+                  datetimeFormatter:
+                    hour: HH:mm
+              plotOptions:
+                bar:
+                  colors:
+                    ranges:
+                      - from: -1000000
+                        to: 0.449999
+                        color: '#236B11'
+                      - from: 0.45
+                        to: 0.749999
+                        color: '#98C21D'
+                      - from: 0.75
+                        to: 0.999999
+                        color: '#F2C433'
+                      - from: 1
+                        to: 1000000
+                        color: '#E42314'
+            series:
+              - entity: sensor.tge_v2_ceny_jutro
+                name: Cena jutro
+                type: column
+                unit: PLN/kWh
+                float_precision: 3
+                data_generator: |
+                  const prices = entity.attributes.prices || [];
+
+                  return prices.map((p) => [
+                    new Date(p.dtime).getTime(),
+                    Number(p.rce_pln)
+                  ]);
+        column_span: 2

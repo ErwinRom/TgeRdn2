@@ -1,0 +1,227 @@
+# =============================================================================
+#  TGE RDN v2 - ceny energii dla Home Assistant
+# =============================================================================
+#
+#  Plik wklejany do configuration.yaml przez:
+#      !include tgerdn.yaml
+#
+#  Co tu jest:
+#    command_line  - dwa sensory czytajace pliki JSON (today.json / tomorrow.json)
+#    input_number  - licznik godzin ladowania (zASILANY przez automatyzacje)
+#    template      - reguly, aktualna cena, okno najtańszych godzin
+#
+#  Co NIE jest tutaj:
+#    sortowanie cen i liczenie okna - to robi Python (tgerdn) i zapisuje
+#    wynik w pliku JSON (klucz "plan"). Dzieki temu okno jest stabilne
+#    przez cala dobe, a szablony sa male.
+#
+#  Wymagania wstępne:
+#    1. Pliki JSON w /config/tgerdn/ - robi je dodatek "TGE RDN" (v2).
+#    2. Automatyzacje z tgerdn_automation.yaml.
+# =============================================================================
+
+command_line:
+  - sensor:
+      - name: "TGE v2 Ceny dzis"
+        unique_id: tgerdn_v2_ceny_dzis
+        command: "cat /config/tgerdn/today.json"
+        value_template: "{{ value_json.data_points if value_json.data_fetched else 'unknown' }}"
+        scan_interval: 300
+        json_attributes:
+          - fixing_i_prices
+          - prices
+          - plan
+          - tariff
+          - stats
+          - day
+          - fetched_at
+          - data_fetched
+          - data_points
+          - unit_of_measurement
+          - friendly_name
+
+  - sensor:
+      - name: "TGE v2 Ceny jutro"
+        unique_id: tgerdn_v2_ceny_jutro
+        command: "cat /config/tgerdn/tomorrow.json"
+        value_template: "{{ value_json.data_points if value_json.data_fetched else 'unknown' }}"
+        scan_interval: 300
+        json_attributes:
+          - fixing_i_prices
+          - prices
+          - plan
+          - tariff
+          - stats
+          - day
+          - fetched_at
+          - data_fetched
+          - data_points
+          - unit_of_measurement
+          - friendly_name
+
+# Licznik godzin ladowania. Zwieksza go automatyzacja "tge_charging_counter"
+# co godzine, gdy przelacznik ladowania jest wlaczony. Uzywany jest do
+# odbudowy okna, gdy HA byl wylaczony w najtanszych godzinach.
+input_number:
+  - tge_ladowane_godziny:
+      name: TGE v2 Ladowane godziny
+      unique_id: tgerdn_v2_ladowane_godziny
+      min: 0
+      max: 24
+      step: 1
+      unit_of_measurement: "h"
+      mode: box
+      icon: mdi:timer-sand
+
+template:
+  - sensor:
+      # ---------------------------------------------------------------------
+      # 1. Reguly - JEDNO miejsce na progi i marginesy.
+      #    Zmiana taryfy to jedna edycja tego bloku.
+      # ---------------------------------------------------------------------
+      - name: "TGE v2 Reguly"
+        unique_id: tgerdn_v2_reguly
+        state: "ok"
+        attributes:
+          # Ile godzin dziennie ladujemy w najtańszym oknie.
+          charging_hours: 5
+          # Histereza: wlac gdy cena <= charge_below, wylacz gdy >= stop_above.
+          charge_below: 0.2
+          stop_above: 0.4
+          # Twardy limit ceny (0 = wylaczony). Gdy > 0, ladowanie nie wlaczy
+          # sie w godzinie drozszej niz limit, nawet wewnatrz okna.
+          max_charge_price: 0
+          # Taryfa dostawy (marginesy) - ta sama co w konfiguracji tgerdn.
+          window_margin: 0.05
+          day_margin: 0.28
+          window_hours: [0, 1, 2, 3, 4, 5, 13, 14, 22, 23]
+
+      # ---------------------------------------------------------------------
+      # 2. Aktualna cena godziny + statystyki dnia.
+      #    "total" z JSON-a to cena z marginesem dostawy (taka, ktora realnie
+      #    placisz). Przy okazji usunieto atrybut "fixing_i_prices" z tego
+      #    template sensora - byl renderowany jako TEKST (Python repr listy),
+      #    przez co szablony czytajace go nie dzialaly.
+      # ---------------------------------------------------------------------
+      - name: "TGE v2 Aktualna cena"
+        unique_id: tgerdn_v2_aktualna_cena
+        unit_of_measurement: "PLN/kWh"
+        state_class: measurement
+        state: >
+          {%- set prices = state_attr('sensor.tge_v2_ceny_dzis', 'fixing_i_prices') or [] -%}
+          {%- set cur = now().hour + 1 -%}
+          {%- set p = (prices | selectattr('hour', 'equalto', cur) | list) -%}
+          {%- set p = p[0] if p else none -%}
+          {{- p.total if p is not none else 'unavailable' -}}
+        attributes:
+          spot: >
+            {%- set prices = state_attr('sensor.tge_v2_ceny_dzis', 'fixing_i_prices') or [] -%}
+            {%- set cur = now().hour + 1 -%}
+            {%- set p = (prices | selectattr('hour', 'equalto', cur) | list) -%}
+            {%- set p = p[0] if p else none -%}
+            {{- p.fixing_i_price_pln_kwh if p is not none else 'unavailable' -}}
+          margin: >
+            {%- set prices = state_attr('sensor.tge_v2_ceny_dzis', 'fixing_i_prices') or [] -%}
+            {%- set cur = now().hour + 1 -%}
+            {%- set p = (prices | selectattr('hour', 'equalto', cur) | list) -%}
+            {%- set p = p[0] if p else none -%}
+            {{- p.margin if p is not none else 'unavailable' -}}
+          day: >
+            {{- state_attr('sensor.tge_v2_ceny_dzis', 'day') or 'unknown' -}}
+          cheapest_price: >
+            {{- (state_attr('sensor.tge_v2_ceny_dzis', 'plan') or {}).get('cheapest_price', 'unavailable') -}}
+          dearest_price: >
+            {{- (state_attr('sensor.tge_v2_ceny_dzis', 'plan') or {}).get('dearest_price', 'unavailable') -}}
+          day_avg: >
+            {{- (state_attr('sensor.tge_v2_ceny_dzis', 'plan') or {}).get('day_avg', 'unavailable') -}}
+          plan_hours_count: >
+            {{- (state_attr('sensor.tge_v2_ceny_dzis', 'plan') or {}).get('count', 0) -}}
+
+      # ---------------------------------------------------------------------
+      # 3. Cena jutra w biezacej godzinie (do porownania z dzisiejsza).
+      # ---------------------------------------------------------------------
+      - name: "TGE v2 Aktualna cena jutro"
+        unique_id: tgerdn_v2_aktualna_cena_jutro
+        unit_of_measurement: "PLN/kWh"
+        state_class: measurement
+        state: >
+          {%- set prices = state_attr('sensor.tge_v2_ceny_jutro', 'fixing_i_prices') or [] -%}
+          {%- set cur = now().hour + 1 -%}
+          {%- set p = (prices | selectattr('hour', 'equalto', cur) | list) -%}
+          {%- set p = p[0] if p else none -%}
+          {{- p.total if p is not none else 'unavailable' -}}
+
+  - binary_sensor:
+      # ---------------------------------------------------------------------
+      # 4. Czy teraz jestesmy w oknie najtańszych godzin?
+      #
+      #    Okno = N najtańszych godzin CALEGO dnia (liczy Python, plan jest
+      #    stabilny przez dobe, wiec przelacznik nie skacze).
+      #
+      #    Odbudowa: jesli HA byl wylaczony w czescci okna, godziny te
+      #    przepadaja. Wtedy doklejamy najtansze godziny, ktore jeszcze
+      #    zostaly w ciagu dnia - dzieki temu dobowy limit N jest dotrzymany.
+      # ---------------------------------------------------------------------
+      - name: "TGE v2 najtańsze 5h"
+        unique_id: tgerdn_v2_najtansze_5h
+        device_class: power
+        state: >
+          {%- set rules = state_attr('sensor.tge_v2_reguly', 'charging_hours') | int(5) -%}
+          {%- set prices = state_attr('sensor.tge_v2_ceny_dzis', 'fixing_i_prices') or [] -%}
+          {%- set plan = state_attr('sensor.tge_v2_ceny_dzis', 'plan') or {} -%}
+          {%- set plan_hours = plan.get('hours', []) if plan is mapping else [] -%}
+          {%- set cur = now().hour + 1 -%}
+          {%- set future = prices | selectattr('hour', 'ge', cur) | list | sort(attribute='total') -%}
+          {%- set plan_future = future | selectattr('hour', 'in', plan_hours) | list -%}
+          {%- set charged = states('input_number.tge_v2_ladowane_godziny') | float(0) | round(0) | int -%}
+          {%- set missing = [rules - charged - (plan_future | length), 0] | max -%}
+          {%- set extras = (future | rejectattr('hour', 'in', plan_hours) | list)[:missing] | map(attribute='hour') | list -%}
+          {%- set window = plan_hours + extras -%}
+          {{- cur in window -}}
+        attributes:
+          charged_hours: >
+            {{- states('input_number.tge_v2_ladowane_godziny') | float(0) | round(2) -}}
+          window_hours: >
+            {%- set prices = state_attr('sensor.tge_v2_ceny_dzis', 'fixing_i_prices') or [] -%}
+            {%- set plan = state_attr('sensor.tge_v2_ceny_dzis', 'plan') or {} -%}
+            {%- set plan_hours = plan.get('hours', []) if plan is mapping else [] -%}
+            {%- set cur = now().hour + 1 -%}
+            {%- set future = prices | selectattr('hour', 'ge', cur) | list | sort(attribute='total') -%}
+            {%- set plan_future = future | selectattr('hour', 'in', plan_hours) | list -%}
+            {%- set charged = states('input_number.tge_v2_ladowane_godziny') | float(0) | round(0) | int -%}
+            {%- set missing = [state_attr('sensor.tge_v2_reguly', 'charging_hours') | int(5) - charged - (plan_future | length), 0] | max -%}
+            {%- set extras = (future | rejectattr('hour', 'in', plan_hours) | list)[:missing] | map(attribute='hour') | list -%}
+            {{- (plan_hours + extras) | join(',') -}}
+          missing_hours: >
+            {%- set prices = state_attr('sensor.tge_v2_ceny_dzis', 'fixing_i_prices') or [] -%}
+            {%- set plan = state_attr('sensor.tge_v2_ceny_dzis', 'plan') or {} -%}
+            {%- set plan_hours = plan.get('hours', []) if plan is mapping else [] -%}
+            {%- set cur = now().hour + 1 -%}
+            {%- set future = prices | selectattr('hour', 'ge', cur) | list | sort(attribute='total') -%}
+            {%- set plan_future = future | selectattr('hour', 'in', plan_hours) | list -%}
+            {%- set charged = states('input_number.tge_v2_ladowane_godziny') | float(0) | round(0) | int -%}
+            {{- [state_attr('sensor.tge_v2_reguly', 'charging_hours') | int(5) - charged - (plan_future | length), 0] | max -}}
+          window_count: >
+            {%- set prices = state_attr('sensor.tge_v2_ceny_dzis', 'fixing_i_prices') or [] -%}
+            {%- set plan = state_attr('sensor.tge_v2_ceny_dzis', 'plan') or {} -%}
+            {%- set plan_hours = plan.get('hours', []) if plan is mapping else [] -%}
+            {%- set cur = now().hour + 1 -%}
+            {%- set future = prices | selectattr('hour', 'ge', cur) | list | sort(attribute='total') -%}
+            {%- set plan_future = future | selectattr('hour', 'in', plan_hours) | list -%}
+            {%- set charged = states('input_number.tge_v2_ladowane_godziny') | float(0) | round(0) | int -%}
+            {%- set missing = [state_attr('sensor.tge_v2_reguly', 'charging_hours') | int(5) - charged - (plan_future | length), 0] | max -%}
+            {%- set extras = (future | rejectattr('hour', 'in', plan_hours) | list)[:missing] | map(attribute='hour') | list -%}
+            {{- (plan_hours + extras) | length -}}
+
+      # ---------------------------------------------------------------------
+      # 5. To samo dla jutra - plan na kolejna dobe.
+      #    Bez odbudowy: jutro mozemy planowac dokladnie.
+      # ---------------------------------------------------------------------
+      - name: "TGE v2 najtańsze 5h jutro"
+        unique_id: tgerdn_v2_najtansze_5h_jutro
+        device_class: power
+        state: >
+          {%- set plan = state_attr('sensor.tge_v2_ceny_jutro', 'plan') or {} -%}
+          {%- set plan_hours = plan.get('hours', []) if plan is mapping else [] -%}
+          {%- set cur = now().hour + 1 -%}
+          {{- cur in plan_hours -}}
