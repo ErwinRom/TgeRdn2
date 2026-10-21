@@ -5,11 +5,26 @@ Trzy pliki do wklejenia, w kolejności:
 
 | Plik | Co wkleić | Gdzie |
 |---|---|---|
-| `configuration.yaml` | encje `command_line`, `input_number`, szablony | `configuration.yaml` (główny) |
+| `configuration.yaml` | encje `command_line`, `input_number`, szablony | katalog `packages/` (patrz niżej) |
 | `automation.yaml` | ładowanie auta + licznik godzin | `automation.yaml` (główny) |
 | `lovelace.yaml` | karty | dashboard (widok) |
 
 ---
+
+### Gdzie wkleić encje
+
+Encje (`configuration.yaml`) w katalogu `packages/`:
+
+```yaml
+# configuration.yaml
+packages: !include_dir_named packages
+```
+
+plik z encjami → `/config/packages/tgerdn.yaml`. Nie dopisuj `!include`
+do `configuration.yaml` — katalog wczytuje się sam.
+
+Automatyzacje **nie mogą** być w pakiecie. Plik `automation.yaml` → `/config/`,
+a na końcu `/config/automation.yaml` dopisz `!include tgerdn_automation.yaml`.
 
 ## 1. Pliki JSON
 

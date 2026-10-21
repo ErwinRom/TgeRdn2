@@ -70,9 +70,35 @@ Wklej w swoim Home Assistant (z katalogu `tgerdn/homeassistant/`):
 
 | Plik | Gdzie wkleić |
 |---|---|
-| `configuration.yaml` | `configuration.yaml` (główny) — encje + szablony |
+| `configuration.yaml` | katalog `packages/` — encje + szablony (patrz niżej) |
 | `automation.yaml` | `automation.yaml` (główny) — ładowanie auta + licznik |
 | `lovelace.yaml` | dashboard (nowy widok) |
+
+**Encje w katalogu `packages/`.** Jeśli używasz pakietów HA:
+
+```yaml
+# configuration.yaml
+packages: !include_dir_named packages
+```
+
+to plik `configuration.yaml` z tego katalogu wrzuć do `/config/packages/`
+(np. `/config/packages/tgerdn.yaml`). Każdy plik w tym katalogu jest
+wczytywany jako osobny pakiet — nie trzeba dopisywać `!include` do
+`configuration.yaml`.
+
+`automation:` **nie może** żyć w pakiecie (HA tego nie dopuszcza), więc
+plik `automation.yaml` wklejasz do `/config/automation.yaml` i na końcu
+dopisujesz:
+
+```yaml
+!include tgerdn_automation.yaml
+```
+
+albo — jeśli wolisz osobne pliki — `/config/automations/` + w `configuration.yaml`:
+
+```yaml
+automation: !include_dir_list automations/
+```
 
 W `configuration.yaml` popraw tylko dwie rzeczy:
 

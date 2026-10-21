@@ -5,6 +5,24 @@ i `io.hass.version` w `Dockerfile` (muszą być zgodne), a tutaj trafia
 opis zmian. Supervisor HA porównuje `version` przy aktualizacji dodatku —
 bez zmiany numeru HA nie pobierze nowej wersji.
 
+## 2.1.1
+
+- **Poprawiono format plikow konfiguracyjnych Home Assistant** - wersja 2.1.0
+  wysyla pliki, ktorych HA nie przyjmowal:
+  - `command_line`: platforma (`sensor:`) musi mapowac do **pojedynczego
+    slownika**, nie do listy - inaczej blad
+    `expected a mapping for dictionary value 'command_line->N->sensor'`,
+  - `input_number`: w pliku glownym to lista, ale **w katalogu `packages/`
+    musi byc slownikiem** - inaczej blad
+    `integration 'input_number' cannot be merged, expected a dict`.
+  Blad dotyczyl rowniez kanonicznego `configuration.yaml` w repo, nie tylko
+  wariantu rownoleglego.
+- Dodano generator `tools/generate_ha_config.py` - oba warianty plikow HA
+  powstaja z jednego zrodla, wiec formaty nie moga sie rozjechac.
+- Dodano testy `tests/test_ha_config_shape.py` kodujace reguly formatu pakietow
+  HA (`command_line` jako lista dictow, `input_number` jako slownik w pakiecie,
+  `template` jako lista, brak kolizji `unique_id` miedzy wariantami).
+
 ## 2.1.0
 
 - Dodano gotową konfigurację Home Assistant w `tgerdn/homeassistant/`:
