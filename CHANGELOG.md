@@ -5,6 +5,19 @@ i `io.hass.version` w `Dockerfile` (muszą być zgodne), a tutaj trafia
 opis zmian. Supervisor HA porównuje `version` przy aktualizacji dodatku —
 bez zmiany numeru HA nie pobierze nowej wersji.
 
+## 2.1.6
+
+- **Kanoniczny `lovelace.yaml` zawiera ulepszone widoki** - karte „Plan
+  ladowania" (okno godzin, stan, naładowane godziny, najtańsza/najdroższa
+  cena, średnia doby, oszczędność) oraz wykresy czytajace `dtime` z pliku
+  JSON zamiast liczyc daty w JavaScript. Wskazuja na docelowe encje
+  (`sensor.tge_rdn_*`), wiec po sprzataniu wariantow rownoleglych widoki
+  dzialaja bez zmian.
+- Warianty rownolegle (`tgerdn_v2.yaml`, `tgerdn_v2_automation.yaml`,
+  `lovelace_v2.yaml`) zostaja w repo jako instrukcja migracji - encje maja
+  prefiks `tge_v2_`, wiec dzialaja obok starej konfiguracji bez kolizji
+  `unique_id`.
+
 ## 2.1.5
 
 - **Poprawiono wartosci atrybutow encji `Reguly`.** W template sensorze
