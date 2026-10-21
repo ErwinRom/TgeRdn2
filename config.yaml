@@ -1,14 +1,13 @@
 name: TGE RDN
-version: "2.1.4"
+version: "2.1.5"
 slug: tgerdn
 description: >-
   Pobiera ceny energii Fixing I z giełdy TGE, liczy plan ładowania auta
   (5 najtańszych godzin doby) i zapisuje pliki JSON dla Home Assistant.
 url: https://github.com/ErwinRom/TgeRdn2
 changelog: >
-  Poprawiono instrukcje instalacji automatyzacji - `!include` wewnatrz listy
-  YAML jest bledny i psuje caly plik automatyzacji. Dodano testy struktury
-  automatyzacji.
+  Poprawiono wartosci atrybutow encji Reguly - w template sensorze kazda
+  wartosc attributes musi byc templatem (stringiem), nie lista ani liczba.
 startup: application
 boot: auto
 init: false

@@ -5,6 +5,19 @@ i `io.hass.version` w `Dockerfile` (muszą być zgodne), a tutaj trafia
 opis zmian. Supervisor HA porównuje `version` przy aktualizacji dodatku —
 bez zmiany numeru HA nie pobierze nowej wersji.
 
+## 2.1.5
+
+- **Poprawiono wartosci atrybutow encji `Reguly`.** W template sensorze
+  kazda wartosc w `attributes:` musi byc **template'em** (stringiem) - lista
+  albo liczba powoduja blad
+  `template value should be a string for dictionary value 'sensor->0->attributes->window_hours'`.
+  Wartosci `window_hours`, `charging_hours`, `charge_below`, `stop_above`,
+  `max_charge_price`, `window_margin` i `day_margin` sa teraz templatami;
+  renderowany JSON jest parsowany przez HA do listy/liczby.
+- Testy kluczy sprawdzaja teraz takze **typy wartosci** atrybutow, nie tylko
+  nazwy kluczy. Test zweryfikowany: po wstawieniu liczby zamiast template'a
+  pada.
+
 ## 2.1.4
 
 - **Poprawiono instrukcje instalacji automatyzacji.** `!include` w miejscu

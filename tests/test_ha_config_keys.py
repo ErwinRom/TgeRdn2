@@ -101,3 +101,21 @@ def test_input_number_nie_ma_unique_id(files):
             assert 'unique_id' not in conf, (
                 f'{name}: input_number.{slug} nie moze miec unique_id'
             )
+
+
+@pytest.mark.parametrize('name', ['configuration.yaml', 'tgerdn_v2.yaml'])
+def test_wartosci_atrybutow_template_sa_to_stringi(files, name):
+    """Kazda wartosc w `attributes:` template sensora musi byc templatem (stringiem).
+
+    HA waliduje atrybuty przez cv.template - lista albo liczba daja blad
+    "template value should be a string for dictionary value 'sensor->0->attributes->X'".
+    """
+    config = files[name]
+    for block in config['template']:
+        for platform, entities in block.items():
+            for entity in entities:
+                for key, value in (entity.get('attributes') or {}).items():
+                    assert isinstance(value, str), (
+                        f"{platform} \"{entity.get('name')}\" -> attributes.{key} musi byc "
+                        f'sztaakiem (template), jest {type(value).__name__}'
+                    )
