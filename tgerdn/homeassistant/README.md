@@ -23,8 +23,13 @@ packages: !include_dir_named packages
 plik z encjami → `/config/packages/tgerdn.yaml`. Nie dopisuj `!include`
 do `configuration.yaml` — katalog wczytuje się sam.
 
-Automatyzacje **nie mogą** być w pakiecie. Plik `automation.yaml` → `/config/`,
-a na końcu `/config/automation.yaml` dopisz `!include tgerdn_automation.yaml`.
+Automatyzacje **nie mogą** być w pakiecie. Zawartość `automation.yaml`
+wklej **na końcu** swojego `/config/automations.yaml` jako kolejne elementy
+listy (kolumna 0, na poziomie `- id:`).
+
+> ⚠️ Nie używaj `!include` wewnątrz listy — to błędny YAML i HA odrzuci
+> cały plik. `!include` działa jako jedyna zawartość pliku albo jako
+> wartość klucza (np. `automation: !include_dir_list automations/`).
 
 ## 1. Pliki JSON
 

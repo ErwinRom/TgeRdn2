@@ -5,6 +5,21 @@ i `io.hass.version` w `Dockerfile` (muszą być zgodne), a tutaj trafia
 opis zmian. Supervisor HA porównuje `version` przy aktualizacji dodatku —
 bez zmiany numeru HA nie pobierze nowej wersji.
 
+## 2.1.4
+
+- **Poprawiono instrukcje instalacji automatyzacji.** `!include` w miejscu
+  elementu listy YAML jest **bledny składniowo** - HA odrzuca wtedy caly plik
+  `automations.yaml` bledem `could not find expected ':'`, a automatyzacje
+  sa oznaczane jako nieaktywne ("konfiguracja zawiera bledy"). `!include`
+  dziala tylko jako jedyna zawartosc pliku albo jako wartosc klucza
+  (np. `automation: !include_dir_list automations/`). Automatyzacje z pliku
+  `tgerdn_v2_automation.yaml` nalezy **wkleic na koncu** listy w
+  `/config/automations.yaml`.
+- Dodano `tests/test_ha_automation.py` - sprawdza strukture automatyzacji wobec
+  schematu integracji `automation`: dozwolone klucze, `choose` i `default` jako
+  rodzenstwa, listy w `conditions`/`sequence`/`triggers`, brak kolizji `id`
+  miedzy wariantami i ten sam przelacznik w obu.
+
 ## 2.1.3
 
 - **Poprawiono klucz sluga helpera `input_number`.** HA tworzy encje
