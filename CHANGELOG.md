@@ -5,6 +5,18 @@ i `io.hass.version` w `Dockerfile` (muszą być zgodne), a tutaj trafia
 opis zmian. Supervisor HA porównuje `version` przy aktualizacji dodatku —
 bez zmiany numeru HA nie pobierze nowej wersji.
 
+## 2.1.3
+
+- **Poprawiono klucz sluga helpera `input_number`.** HA tworzy encje
+  `input_number.<slug>` - a szablony i automatyzacja odwolywaly sie do
+  `input_number.tge_v2_ladowane_godziny`, podczas gdy encja powstawala jako
+  `input_number.tgerdn_v2_ladowane_godziny`. Blad byl cichy: `states()` zwraca
+  `unknown`, a `| float(0)` zamienia to w zero, wiec licznik godzin ladowania
+  nigdy sie nie inkrementowal, a odbudowa okna po awarii HA nie dzialala.
+- Dodano `tests/test_ha_references.py` - sprawdza, czy **kazda** referencja
+  w szablonach i automatyzacji wskazuje na encje, ktora faktycznie istnieje.
+  Test zweryfikowany: po wprowadzeniu starego sluga pada na dwa asercje.
+
 ## 2.1.2
 
 - **Usunieto `unique_id` z helpera `input_number`** - schema helpera nie zawiera

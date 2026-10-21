@@ -302,9 +302,9 @@ def build(variant):
         fields[f'eid_{key}'] = value
 
     if v['input_number'] == 'list':
-        body = '  - tgerdn_ladowane_godziny:\n' + IN_NUMBER_CONF_CANON
+        body = '  - tge_ladowane_godziny:\n' + IN_NUMBER_CONF_CANON
     else:
-        body = '  tgerdn_v2_ladowane_godziny:\n' + IN_NUMBER_CONF
+        body = '  tge_v2_ladowane_godziny:\n' + IN_NUMBER_CONF
 
     text = HEADER.format(**v)
     text += COMMAND_LINE.format(**fields)
