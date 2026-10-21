@@ -52,7 +52,7 @@ command_line:
         - friendly_name
 
 input_number:
-  tgerdn_v2_ladowane_godziny:
+  tge_v2_ladowane_godziny:
     name: TGE v2 Ladowane godziny
     min: 0
     max: 24
