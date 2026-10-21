@@ -1,13 +1,14 @@
 name: TGE RDN
-version: "2.1.5"
+version: "2.1.6"
 slug: tgerdn
 description: >-
   Pobiera ceny energii Fixing I z giełdy TGE, liczy plan ładowania auta
   (5 najtańszych godzin doby) i zapisuje pliki JSON dla Home Assistant.
 url: https://github.com/ErwinRom/TgeRdn2
 changelog: >
-  Poprawiono wartosci atrybutow encji Reguly - w template sensorze kazda
-  wartosc attributes musi byc templatem (stringiem), nie lista ani liczba.
+  Kanoniczny Lovelace (lovelace.yaml) zawiera teraz ulepszone widoki - karte
+  Planu ladowania i wykresy bez liczenia dat w JavaScript - wskazujace na
+  docelowe encje (bez prefiksu v2).
 startup: application
 boot: auto
 init: false

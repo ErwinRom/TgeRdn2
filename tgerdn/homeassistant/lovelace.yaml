@@ -1,13 +1,16 @@
 # =============================================================================
-#  Karty Lovelace - TGE RDN
+#  TGE RDN - widoki Lovelace
 # =============================================================================
 #
-#  Zmiany w stosunku do wersji v1:
-#    - ceny sa z marginesem dostawy (kolor = realny koszt, nie sam kurs)
-#    - plan ladowania jest w osobnej karcie (okno, koszt, oszczednosc)
-#    - wykresy czytaja `total_pln`; `rce_pln` (sam kurs Fixing I) tez jest
-#      w JSON-ie, jesli wolisz widziec kurs bez marzu dostawy
-#    - brak liczenia dat w JavaScript - daty pochodza z `dtime`
+#  Wklej jako NOWY widok (niczego nie usuwaj - stare widoki zostaja).
+#
+#  Tryb YAML (Plik -> Edytuj dashboard w YAML):
+#      dodaj te dwa widoki do listy "views:"
+#  Tryb interaktywny (karty w UI):
+#      dodaj nowa karte, wklej do niej tresc jednego widoku
+#      (bez sekcji "views:" i bez "type: sections" na najwyzszym poziomie)
+#
+#  Encje: sensor.tge_rdn_* / binary_sensor.tge_najtansze_5h*
 # =============================================================================
 
 views:
@@ -28,12 +31,17 @@ views:
                 text_only: true
                 content: >
                   <table role="presentation">
+
                   <tr>
+
                   <td width="44"><ha-icon
                   icon="mdi:calendar-today"></ha-icon></td>
-                  <td><h1>{{ as_timestamp(now()) | timestamp_custom('%d.%m.%Y',
+
+                  <td><h1>{{ now() | as_timestamp | timestamp_custom('%d.%m.%Y',
                   local=True) }}</h1></td>
+
                   </tr>
+
                   </table>
           - type: vertical-stack
             cards:
@@ -41,21 +49,24 @@ views:
                 content: >-
                   {% macro price_cell(entity_id, hour) -%}
                     {%- set vals = state_attr(entity_id, 'fixing_i_prices') or [] -%}
-                    {%- set cell = (vals | selectattr('hour', 'equalto', hour + 1) | list) -%}
-                    {%- set cell = cell[0] if cell else none -%}
+                    {%- set cell = (vals | selectattr('hour', 'equalto', hour + 1) | list) | first | default(none, true) -%}
                     {%- set price = none -%}
-                    {%- if cell and is_number(cell.total) -%}
-                      {%- set price = cell.total | float -%}
+                    {%- if cell and is_number(cell.fixing_i_price_pln_kwh) -%}
+                      {%- set price = cell.fixing_i_price_pln_kwh | float -%}
                     {%- endif -%}
                     {%- set fg = '#9CA3AF' -%}
                   {%- if price is not none %}
                     {%- if price < 0.45 %}
+                      {# Zalecane oszczedzanie - Ciemnozielony #}
                       {%- set fg = '#236B11' %}
                     {%- elif price < 0.75 %}
+                      {# Zalecane uzytkowanie - Jasnozielony/Limonkowy #}
                       {%- set fg = '#98C21D' %}
                     {%- elif price < 1.00 %}
+                      {# Normalne uzytkowanie - Zolty/Bursztynowy #}
                       {%- set fg = '#F2C433' %}
                     {%- else %}
+                      {# Wymagane ograniczenie - Czerwony #}
                       {%- set fg = '#E42314' %}
                     {%- endif %}
                   {%- endif %}
@@ -85,8 +96,8 @@ views:
                   <br>
                   <small>
                   Ostatnia aktualizacja:
-                  {{ as_timestamp(states[entity_id].last_updated)
-                     | timestamp_custom('%Y-%m-%d %H:%M:%S', local=True) }}
+                  {{ states[entity_id].last_updated
+                     | as_timestamp | timestamp_custom('%Y-%m-%d %H:%M:%S', local=True) }}
                   </small>
                   </center>
                   {% else %}
@@ -111,12 +122,17 @@ views:
                 text_only: true
                 content: >
                   <table role="presentation">
+
                   <tr>
+
                   <td width="44"><ha-icon
                   icon="mdi:calendar-arrow-right"></ha-icon></td>
-                  <td><h1>{{ as_timestamp(now() + timedelta(days=1)) |
+
+                  <td><h1>{{ (now() + timedelta(days=1)) | as_timestamp |
                   timestamp_custom('%d.%m.%Y', local=True) }}</h1></td>
+
                   </tr>
+
                   </table>
           - type: vertical-stack
             cards:
@@ -124,11 +140,10 @@ views:
                 content: >-
                   {% macro price_cell(entity_id, hour) -%}
                     {%- set vals = state_attr(entity_id, 'fixing_i_prices') or [] -%}
-                    {%- set cell = (vals | selectattr('hour', 'equalto', hour + 1) | list) -%}
-                    {%- set cell = cell[0] if cell else none -%}
+                    {%- set cell = (vals | selectattr('hour', 'equalto', hour + 1) | list) | first | default(none, true) -%}
                     {%- set price = none -%}
-                    {%- if cell and is_number(cell.total) -%}
-                      {%- set price = cell.total | float -%}
+                    {%- if cell and is_number(cell.fixing_i_price_pln_kwh) -%}
+                      {%- set price = cell.fixing_i_price_pln_kwh | float -%}
                     {%- endif -%}
                     {%- set fg = '#9CA3AF' -%}
                   {%- if price is not none %}
@@ -168,8 +183,8 @@ views:
                   <br>
                   <small>
                   Ostatnia aktualizacja:
-                  {{ as_timestamp(states[entity_id].last_updated)
-                     | timestamp_custom('%Y-%m-%d %H:%M:%S', local=True) }}
+                  {{ states[entity_id].last_updated
+                     | as_timestamp | timestamp_custom('%Y-%m-%d %H:%M:%S', local=True) }}
                   </small>
                   </center>
                   {% else %}
@@ -206,52 +221,43 @@ views:
               red: 1
             needle: true
             max: 1.5
-      - type: grid
-        column_span: 1
-        cards:
-          - type: heading
-            heading: Plan ładowania
-            heading_style: title
-            icon: mdi:car-battery-charging
           - type: markdown
-            text_only: true
-            content: >-
-              {%- set plan = state_attr('sensor.tge_rdn_cena_dzis', 'plan') or {} -%}
-              {%- set charged = states('input_number.tge_ladowane_godziny') | float(0) -%}
-              {%- set hours = plan.get('hours', []) if plan is mapping else [] -%}
-              {%- set blocks = [] -%}
-              {%- for h in hours | sort -%}
-                {%- if blocks and h == blocks[-1][-1] + 1 -%}
-                  {%- set _ = blocks[-1].append(h) -%}
-                {%- else -%}
-                  {%- set _ = blocks.append([h]) -%}
-                {%- endif -%}
-              {%- endfor -%}
-              {%- set windows = [] -%}
-              {%- for block in blocks -%}
-                {%- set _ = windows.append('%02d:00-%02d:00' | format(block[0] - 1, block[-1])) -%}
-              {%- endfor -%}
-              <table role="presentation">
-                <tr>
-                  <td width="44"><ha-icon icon="mdi:clock-outline"></ha-icon></td>
-                  <td>Okno: <b>{{ windows | join(', ') if windows else 'brak danych' }}</b></td>
-                </tr>
-                <tr>
-                  <td><ha-icon icon="mdi:currency-pln"></ha-icon></td>
-                  <td>W oknie: <b>{{ '%.3f'|format(plan.get('cost_avg', 0)) }} PLN/kWh</b>
-                      (najdrożej w dobie: {{ '%.3f'|format(plan.get('cost_worst', 0)) }})</td>
-                </tr>
-                <tr>
-                  <td><ha-icon icon="mdi:chart-line"></ha-icon></td>
-                  <td>20 kWh w oknie: <b>{{ '%.2f'|format(plan.get('cost_avg', 0) * 20) }} zł</b>
-                      · oszczędność: {{ '%.2f'|format(plan.get('saving', 0) * 20) }} zł</td>
-                </tr>
-                <tr>
-                  <td><ha-icon icon="mdi:timer-sand"></ha-icon></td>
-                  <td>Naładowane dziś: <b>{{ '%.0f'|format(charged) }} h</b>
-                      z {{ plan.get('count', 0) }} h</td>
-                </tr>
+            title: Plan ładowania
+            content: >
+              {% set plan = state_attr('sensor.tge_rdn_cena_dzis', 'plan') or {} %}
+              {% set periods = plan.get('periods', []) %}
+              {% set charged = state_attr('binary_sensor.tge_najtansze_5h', 'charged_hours') %}
+              {% set missing = state_attr('binary_sensor.tge_najtansze_5h', 'missing_hours') %}
+              {% set in_window = is_state('binary_sensor.tge_najtansze_5h', 'on') %}
+              <table role="presentation" width="100%">
+              <tr>
+              <td>Okno ładowania:</td>
+              <td><b>{{ periods | join(', ') }}</b></td>
+              </tr>
+              <tr>
+              <td>Stan:</td>
+              <td><b>{{ 'LADUJEMY' if in_window else 'poza oknem' }}</b></td>
+              </tr>
+              <tr>
+              <td>Naładowane godziny:</td>
+              <td>{{ charged | default(0, true) }} h
+              {%- if missing | int(0) > 0 %} (brakuje {{ missing }}){% endif %}</td>
+              </tr>
+              <tr>
+              <td>Najtańsza / najdroższa:</td>
+              <td>{{ '%.3f'|format(plan.get('cheapest_price', 0)) }} /
+              {{ '%.3f'|format(plan.get('dearest_price', 0)) }} PLN/kWh</td>
+              </tr>
+              <tr>
+              <td>Średnia doby:</td>
+              <td>{{ '%.3f'|format(plan.get('day_avg', 0)) }} PLN/kWh</td>
+              </tr>
+              <tr>
+              <td>Oszczędność w oknie:</td>
+              <td>{{ '%.3f'|format(plan.get('saving', 0)) }} PLN/kWh</td>
+              </tr>
               </table>
+            text_only: true
       - type: grid
         cards:
           - type: heading
@@ -268,9 +274,10 @@ views:
           - type: gauge
             entity: sensor.shelly_em3_channel_c_current
             max: 25
+            needle: false
     badges: []
-
   - title: Ceny Energii
+    path: ceny-energii
     type: sections
     max_columns: 2
     sections:
@@ -321,7 +328,7 @@ views:
 
                   return prices.map((p) => [
                     new Date(p.dtime).getTime(),
-                    Number(p.total_pln ?? p.rce_pln)
+                    Number(p.rce_pln)
                   ]);
       - type: grid
         cards:
@@ -371,6 +378,6 @@ views:
 
                   return prices.map((p) => [
                     new Date(p.dtime).getTime(),
-                    Number(p.total_pln ?? p.rce_pln)
+                    Number(p.rce_pln)
                   ]);
         column_span: 2
