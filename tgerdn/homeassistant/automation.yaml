@@ -1,0 +1,90 @@
+# =============================================================================
+#  Automatyzacje ladowania auta (TGE)
+# =============================================================================
+#
+#  Zasada:
+#    ON  -> jestesmy w oknie najtanszych godzin LUB cena spadla ponizej progu
+#    OFF -> wyszliśmy z okna I cena jest wysoka (histereza)
+#
+#  Okno = N najtanszych godzin calego dnia (liczy Python). Dzieki temu
+#  przelacznik nie skacze miedzy godzinami, a dobowy limit jest dotrzymany.
+# =============================================================================
+
+- id: tge_charging_car
+  alias: Ładowanie auta - najtańsze godziny TGE
+  description: >
+    Włącza ładowanie w najtańszych godzinach doby. Dodatkowo włącza
+    ładowanie, gdy cena spadnie poniżej progu histerezy, i wyłącza, gdy
+    cena wzrośnie powyżej górnego progu poza oknem.
+  triggers:
+    - trigger: state
+      entity_id:
+        - sensor.tge_rdn_aktualna_cena
+        - binary_sensor.tge_najtansze_5h
+        - input_number.tge_ladowane_godziny
+    - trigger: time_pattern
+      minutes: '0'
+    - trigger: homeassistant
+      event: start
+  conditions: []
+  actions:
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: >-
+                {{ (is_state('binary_sensor.tge_najtansze_5h', 'on')
+                    or (states('sensor.tge_rdn_aktualna_cena') not in ['unknown', 'unavailable', 'none']
+                        and states('sensor.tge_rdn_aktualna_cena') | float(999)
+                           <= state_attr('sensor.tge_rdn_reguly', 'charge_below') | float(0.2)))
+                   and (state_attr('sensor.tge_rdn_reguly', 'max_charge_price') | float(0) <= 0
+                        or states('sensor.tge_rdn_aktualna_cena') | float(999)
+                           <= state_attr('sensor.tge_rdn_reguly', 'max_charge_price') | float(0))
+                   and is_state('switch.0xb40ecfd05e500000', 'off') }}
+          sequence:
+            - action: switch.turn_on
+              target:
+                entity_id: switch.0xb40ecfd05e500000
+      default:
+        - conditions:
+            - condition: template
+              value_template: >-
+                {{ not is_state('binary_sensor.tge_najtansze_5h', 'on')
+                    and (states('sensor.tge_rdn_aktualna_cena') in ['unknown', 'unavailable', 'none']
+                        or states('sensor.tge_rdn_aktualna_cena') | float(-999)
+                           >= state_attr('sensor.tge_rdn_reguly', 'stop_above') | float(0.4))
+                    and is_state('switch.0xb40ecfd05e500000', 'on') }}
+          sequence:
+            - action: switch.turn_off
+              target:
+                entity_id: switch.0xb40ecfd05e500000
+  mode: single
+
+- id: tge_charging_counter
+  alias: Licznik godzin ładowania (TGE)
+  description: >
+    Co godzinę sprawdza, czy ładowanie było włączone, i zwiększa licznik.
+    O 00:00 licznik startuje od zera. Licznik służy do odbudowy okna
+    najtańszych godzin, gdy Home Assistant był wyłączony w najtańszych
+    godzinach doby.
+  triggers:
+    - trigger: time_pattern
+      minutes: '0'
+  conditions: []
+  actions:
+    - if:
+        - condition: template
+          value_template: "{{ is_state('switch.0xb40ecfd05e500000', 'on') }}"
+      then:
+        - action: input_number.increment
+          target:
+            entity_id: input_number.tge_ladowane_godziny
+    - if:
+        - condition: template
+          value_template: "{{ now().hour == 0 }}"
+      then:
+        - action: input_number.set_value
+          target:
+            entity_id: input_number.tge_ladowane_godziny
+          data:
+            value: 0
+  mode: single
