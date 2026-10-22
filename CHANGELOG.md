@@ -5,6 +5,12 @@ i `io.hass.version` w `Dockerfile` (muszą być zgodne), a tutaj trafia
 opis zmian. Supervisor HA porównuje `version` przy aktualizacji dodatku —
 bez zmiany numeru HA nie pobierze nowej wersji.
 
+## 2.1.9
+
+- `MIGRACJA.md`: migracja zakonczona 2026-10-22. Dokument opisuje stan po
+  sprzataniu (w HA dziala tylko v2) i przebieg sprzatania zamiast planu.
+  Kod dodatku bez zmian.
+
 ## 2.1.8
 
 - **Poprawiono automatyzacje `tge_v2_charging_car`.** Galaz wylaczajaca
