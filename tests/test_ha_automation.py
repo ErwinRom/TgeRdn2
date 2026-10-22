@@ -8,6 +8,8 @@ integracji `automation` (homeassistant/components/automation/config.py):
   - kazda automatyzacja: id, alias, triggers, actions, mode, ...
   - `choose` i `default` to RODZESTWA w ramach jednej akcji (nie `default`
     wewnatrz listy `choose`)
+  - `default` to LISTA AKCJI, nie galezi - galaz (`conditions` + `sequence`)
+    zyje tylko w `choose`
   - `conditions` i `sequence` to listy
   - akcje: action/service + target + data
 """
@@ -79,6 +81,38 @@ def test_choose_i_default_sa_rodzestwami(name):
             if 'default' in action:
                 assert isinstance(action['default'], list)
                 assert action['default'], 'pusty `default`'
+
+
+ACTION_LISTS = ('actions', 'sequence', 'default', 'then', 'else')
+
+
+def _action_items(node):
+    """Zwraca (klucz listy, element) dla kazdej akcji w drzewie."""
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key in ACTION_LISTS and isinstance(value, list):
+                for item in value:
+                    yield key, item
+            yield from _action_items(value)
+    elif isinstance(node, list):
+        for value in node:
+            yield from _action_items(value)
+
+
+@pytest.mark.parametrize('name', ['tgerdn_v2_automation.yaml'])
+def test_listy_akcji_zawieraja_akcje_nie_galezie(name):
+    """Element listy akcji nie moze miec `conditions` - to klucz galezi `choose`.
+
+    Regresja: `default: [{conditions: ..., sequence: ...}]` - HA odrzucal cala
+    automatyzacje bledem "not a valid option at 'actions[0].default[0].conditions'".
+    """
+    for automation in _load(name):
+        for key, item in _action_items(automation):
+            assert isinstance(item, dict), f'{key}: element listy akcji to nie slownik'
+            assert 'conditions' not in item, (
+                f'automatyzacja {automation.get("id")}: element `{key}` ma `conditions` - '
+                'galaz z warunkami musi byc w `choose`, nie w liscie akcji'
+            )
 
 
 @pytest.mark.parametrize('name', ['tgerdn_v2_automation.yaml'])

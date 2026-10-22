@@ -5,6 +5,21 @@ i `io.hass.version` w `Dockerfile` (muszą być zgodne), a tutaj trafia
 opis zmian. Supervisor HA porównuje `version` przy aktualizacji dodatku —
 bez zmiany numeru HA nie pobierze nowej wersji.
 
+## 2.1.8
+
+- **Poprawiono automatyzacje `tge_v2_charging_car`.** Galaz wylaczajaca
+  ladowanie byla w `default:` w ksztalcie galezi `choose`
+  (`conditions` + `sequence`), a `default` to **lista akcji**. HA odrzucal
+  cala automatyzacje: `not a valid option at 'actions[0].default[0].conditions'`
+  - automatyzacja v2 nigdy nie dzialala, przelacznikiem sterowala tylko
+  automatyzacja v1. Wylaczanie jest teraz druga galezia `choose` (warunki
+  wlaczania i wylaczania wykluczaja sie - wymagaja przelacznika odpowiednio
+  `off` i `on`, wiec dzialanie jest takie samo jak zamierzone).
+- Symulator czyta warunek wylaczania z drugiej galezi `choose`.
+- Nowy test `test_listy_akcji_zawieraja_akcje_nie_galezie` - zaden element
+  listy akcji (`actions`, `sequence`, `default`, `then`, `else`) nie moze miec
+  `conditions`. Test zweryfikowany: na poprzedniej wersji pliku pada.
+
 ## 2.1.7
 
 - **Testy CLI nie zaleza od daty systemowej.** Fixture zawiera tylko dobe

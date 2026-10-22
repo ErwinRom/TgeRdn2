@@ -5,7 +5,7 @@
 
 ## TL;DR
 
-- Dodatek **v2.1.7** działa, pobiera ceny z tge.pl i zapisuje pliki JSON.
+- Dodatek **v2.1.8** działa, pobiera ceny z tge.pl i zapisuje pliki JSON.
 - W HA działają **dwa komplety encji równolegle** (stary i nowy) — celowo,
   żeby dało się bezpiecznie porównać działanie przed sprzątaniem.
 - Sprzątanie **nie zostało wykonane**. Wszystko stare działa i może zostać.
@@ -69,6 +69,10 @@ restart.
   `could not find expected ':'`. `!include` działa tylko jako jedyna zawartość
   pliku albo jako wartość klucza (`automation: !include_dir_list automations/`).
   Automatyzacje wklejać **na końcu listy** w `automations.yaml`.
+- **`default:` w `choose` to lista akcji, nie gałęzi.** Element z
+  `conditions` + `sequence` w `default` → HA odrzuca automatyzację:
+  `not a valid option at 'actions[0].default[0].conditions'`. Gałąź
+  z warunkami musi być kolejnym elementem `choose`.
 - **`command_line:`** — klucz platformy (`sensor:`) mapuje do **pojedynczego
   słownika**, nie listy.
 - **`input_number:`** — w pliku głównym lista, w katalogu `packages/` słownik.
@@ -85,9 +89,9 @@ Te reguły są zakodowane w testach `tests/test_ha_config_shape.py`,
 
 ## Stan repo
 
-- Wersja **2.1.7** spójna w `config.yaml`, `Dockerfile`, `CHANGELOG.md`
+- Wersja **2.1.8** spójna w `config.yaml`, `Dockerfile`, `CHANGELOG.md`
   (pilnuje tego `tests/test_manifest.py`).
-- **105 testów** przechodzi (`python3 -m pytest tests/ -q`).
+- **106 testów** przechodzi (`python3 -m pytest tests/ -q`).
 - W repo jest tylko wariant v2: `tgerdn_v2.yaml` (generowany przez
   `tools/generate_ha_config.py`), `tgerdn_v2_automation.yaml`,
   `lovelace_v2.yaml`. Kanoniczne pliki usunięto w 2.1.7. Symulator

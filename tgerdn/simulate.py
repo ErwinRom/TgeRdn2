@@ -188,7 +188,7 @@ class HomeAssistantConfig:
 
         action = self.automation[0]['actions'][0]
         self.turn_on_template = action['choose'][0]['conditions'][0]['value_template']
-        self.turn_off_template = action['default'][0]['conditions'][0]['value_template']
+        self.turn_off_template = action['choose'][1]['conditions'][0]['value_template']
 
     def entities(self) -> list[tuple[str, str, Any, dict]]:
         """Zwraca (rodzaj, nazwa, szablon stanu, atrybuty) wszystkich encji."""

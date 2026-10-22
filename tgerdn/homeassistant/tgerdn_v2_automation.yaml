@@ -48,7 +48,6 @@
             - action: switch.turn_on
               target:
                 entity_id: switch.0xb40ecfd05e500000
-      default:
         - conditions:
             - condition: template
               value_template: >-
