@@ -39,7 +39,7 @@
                 {{ (is_state('binary_sensor.tge_v2_najtansze_5h', 'on')
                     or (states('sensor.tge_v2_aktualna_cena') not in ['unknown', 'unavailable', 'none']
                         and states('sensor.tge_v2_aktualna_cena') | float(999)
-                           <= state_attr('sensor.tge_v2_reguly', 'charge_below') | float(0.2)))
+                           <= state_attr('sensor.tge_v2_reguly', 'charge_below') | float(0.4)))
                    and (state_attr('sensor.tge_v2_reguly', 'max_charge_price') | float(0) <= 0
                         or states('sensor.tge_v2_aktualna_cena') | float(999)
                            <= state_attr('sensor.tge_v2_reguly', 'max_charge_price') | float(0))
@@ -54,7 +54,7 @@
                 {{ not is_state('binary_sensor.tge_v2_najtansze_5h', 'on')
                     and (states('sensor.tge_v2_aktualna_cena') in ['unknown', 'unavailable', 'none']
                         or states('sensor.tge_v2_aktualna_cena') | float(-999)
-                           >= state_attr('sensor.tge_v2_reguly', 'stop_above') | float(0.4))
+                           >= state_attr('sensor.tge_v2_reguly', 'stop_above') | float(0.5))
                     and is_state('switch.0xb40ecfd05e500000', 'on') }}
           sequence:
             - action: switch.turn_off

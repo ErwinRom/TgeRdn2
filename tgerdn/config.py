@@ -33,12 +33,12 @@ class Tariff:
         max_charge_price: twardy limit ceny (0 = wylaczony).
     """
 
-    window_margin: float = 0.05
-    day_margin: float = 0.28
+    window_margin: float = 0.0993
+    day_margin: float = 0.3276
     window_hours: tuple[int, ...] = DEFAULT_WINDOW_HOURS
     charging_hours: int = 5
-    charge_below: float = 0.2
-    stop_above: float = 0.4
+    charge_below: float = 0.4
+    stop_above: float = 0.5
     max_charge_price: float = 0.0
 
     def margin(self, clock_hour: int) -> float:

@@ -5,6 +5,27 @@ i `io.hass.version` w `Dockerfile` (muszą być zgodne), a tutaj trafia
 opis zmian. Supervisor HA porównuje `version` przy aktualizacji dodatku —
 bez zmiany numeru HA nie pobierze nowej wersji.
 
+## 2.1.10
+
+- **Marginesy z faktury (Energa, G12, 2026).** `window_margin` 0,05 -> 0,0993
+  i `day_margin` 0,28 -> 0,3276 PLN/kWh netto. Margines to teraz wszystkie
+  oplaty zmienne za kWh: skladnik zmienny stawki sieciowej (0,0558 noc /
+  0,2841 dzien) + jakosciowa 0,0332 + OZE 0,0073 + kogeneracyjna 0,0030.
+  Wczesniej brakowalo ~0,0435 PLN/kWh w obu strefach.
+- **Progi ladowania dopasowane do realnych cen.** `charge_below` 0,2 -> 0,4,
+  `stop_above` 0,4 -> 0,5 (cena spot + margines, netto). Przy nowych
+  marginesach 0,2 wymagalby spotu <= 0,10 w nocy lub ujemnego w dzien, wiec
+  praktycznie nie dzialal. Na cenach RCE z 2026-08-01..2026-10-22 okno 5 h
+  kosztowalo srednio 0,44-0,58, mediana doby 0,78-0,85; 0,4/0,5 = dokladanie
+  ladowania tylko taniej niz przecietne okno.
+- **Kolory w Lovelace wg ceny z marginesem i progow z danych.** Siatka
+  godzin i wykresy kolorowaly sam kurs spot (`fixing_i_price_pln_kwh`,
+  `rce_pln`), choc README opisywalo cene z marginesem - teraz `total` /
+  `total_pln`. Progi 0,45/0,75/1,00 -> 0,50/0,80/1,20 (12/35/38/15% godzin
+  na cenach 2026-08..10), wskaznik: zolty od 0,8, czerwony od 1,2, max 2.
+  Legenda opisuje przedzialy cen zamiast stanow Kompasu PSE, z ktorymi
+  kolory nie mialy zwiazku.
+
 ## 2.1.9
 
 - `MIGRACJA.md`: migracja zakonczona 2026-10-22. Dokument opisuje stan po

@@ -1,5 +1,5 @@
 name: TGE RDN
-version: "2.1.9"
+version: "2.1.10"
 slug: tgerdn
 description: >-
   Pobiera ceny energii Fixing I z giełdy TGE, liczy plan ładowania auta
