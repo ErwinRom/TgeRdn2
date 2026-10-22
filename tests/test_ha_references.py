@@ -79,11 +79,6 @@ def _references(texts: list[str]) -> set[str]:
 
 
 @pytest.fixture(scope='module')
-def canonical():
-    return yaml.safe_load((HA / 'configuration.yaml').read_text(encoding='utf-8'))
-
-
-@pytest.fixture(scope='module')
 def package():
     return yaml.safe_load((HA / 'tgerdn_v2.yaml').read_text(encoding='utf-8'))
 
@@ -146,10 +141,3 @@ def _action_texts(node) -> list[str]:
         for value in node:
             out.extend(_action_texts(value))
     return out
-
-
-def test_plik_glowny_ma_spójne_referencje(canonical):
-    known = entity_ids(canonical)
-    referenced = _references(_templates(canonical))
-    missing = referenced - known
-    assert not missing, f'plik glowny: brak encji {missing}'

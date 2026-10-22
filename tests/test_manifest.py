@@ -70,20 +70,7 @@ def test_pliki_konfiguracyjne_ha_sa_w_repozytorium():
     """Komplet do wklejenia w HA musi byc w repo - inaczej uzytkownik nie ma skad
     go wziac, a my nie mamy jak go testowac."""
     ha = REPO / 'tgerdn' / 'homeassistant'
-    for name in ('configuration.yaml', 'automation.yaml', 'lovelace.yaml',
-                 'tgerdn_v2.yaml', 'tgerdn_v2_automation.yaml', 'lovelace_v2.yaml'):
+    for name in ('tgerdn_v2.yaml', 'tgerdn_v2_automation.yaml', 'lovelace_v2.yaml'):
         path = ha / name
         assert path.is_file(), f'brak pliku {name}'
         yaml.safe_load(path.read_text(encoding='utf-8'))
-
-
-def test_warianty_v2_nie_koliduja_z_kanonicznymi():
-    """Encje wariantu v2 maja prefiks tge_v2_, wiec dzialaja obok starych."""
-    canonical = (REPO / 'tgerdn' / 'homeassistant' / 'configuration.yaml').read_text(encoding='utf-8')
-    parallel = (REPO / 'tgerdn' / 'homeassistant' / 'tgerdn_v2.yaml').read_text(encoding='utf-8')
-
-    def unique_ids(text: str) -> set[str]:
-        return set(re.findall(r'unique_id:\s*(\S+)', text))
-
-    wspolne = unique_ids(canonical) & unique_ids(parallel)
-    assert not wspolne, f'kolizja unique_id miedzy wariantami: {wspolne}'

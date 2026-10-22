@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
-"""Generuje pliki konfiguracyjne HA w repo z poprawnym formatem HA.
+"""Generuje pakiet HA `tgerdn_v2.yaml` z poprawnym formatem HA.
 
-Format jest inny dla pliku glownego i dla pakietu (`packages/`):
+Format pakietu (`packages/`):
   command_line:  lista wpisow, kazdy {platform: POJEDYNCZY dict}
   template:      lista platform, kazda {platform: LISTA encji}
-  input_number:  plik glowny - lista; pakiet - slownik
-
-Jeden generator, dwa warianty -> nie da sie rozsynchronizowac.
+  input_number:  slownik (lista jest odrzucana przy laczeniu pakietow)
 """
 
 from pathlib import Path
@@ -22,7 +20,7 @@ HEADER = """# ==================================================================
 #
 #  Wymagania wstępne:
 #    1. Pliki JSON w /config/tgerdn/ - robi je dodatek "TGE RDN" (v2).
-#    2. Automatyzacje z tgerdn{automation_suffix}_automation.yaml.
+#    2. Automatyzacje z {automation_file}.
 # =============================================================================
 """
 
@@ -224,38 +222,12 @@ template:
 """
 
 VARIANTS = {
-    'configuration.yaml': {
-        'title': 'encje dla Home Assistant',
-        'intro': ('Wklej do configuration.yaml (albo, jesli uzywasz pakietow,\n'
-                  '#  do /config/packages/tgerdn.yaml - wtedy encje wczytaja sie\n'
-                  '#  automatycznie przez "packages: !include_dir_named packages").'),
-        'automation_suffix': '_',
-        'names': {
-            'dzis': 'TGE RDN Cena dzis', 'jutro': 'TGE RDN Cena jutro',
-            'reguly': 'TGE RDN Reguly', 'cena': 'TGE RDN Aktualna cena',
-            'cena_jutro': 'TGE RDN Aktualna Cena Jutro',
-            'okno': 'TGE najtansze 5h', 'okno_jutro': 'TGE najtansze 5h jutro',
-        },
-        'uids': {
-            'dzis': 'tgerdn_cena_dzis', 'jutro': 'tgerdn_cena_jutro',
-            'reguly': 'tgerdn_reguly', 'cena': 'tgerdn_aktualna_cena',
-            'cena_jutro': 'tgerdn_aktualna_cena_jutro',
-            'okno': 'tge_cheapest_5h_window', 'okno_jutro': 'tge_najtansze_5h_jutro',
-            'licznik': 'tgerdn_ladowane_godziny',
-        },
-        'eids': {
-            'dzis': 'tge_rdn_cena_dzis', 'jutro': 'tge_rdn_cena_jutro',
-            'reguly': 'tge_rdn_reguly', 'licznik': 'tge_ladowane_godziny',
-        },
-        'input_number': 'list',
-    },
     'tgerdn_v2.yaml': {
-        'title': 'encje v2 - wariant równoległy',
-        'intro': ('Do katalogu /config/packages/ - encje maja prefiks tge_v2_, wiec\n'
-                  '#  dzialaja obok starej konfiguracji (bez kolizji unique_id).\n'
-                  '#  W tym wariancie input_number jest slownikiem - w pakiecie\n'
-                  '#  lista jest odrzucana przez HA.'),
-        'automation_suffix': '_v2_',
+        'title': 'encje v2',
+        'intro': ('Do katalogu /config/packages/ - encje maja prefiks tge_v2_.\n'
+                  '#  input_number jest slownikiem - w pakiecie lista jest\n'
+                  '#  odrzucana przez HA.'),
+        'automation_file': 'tgerdn_v2_automation.yaml',
         'names': {
             'dzis': 'TGE v2 Ceny dzis', 'jutro': 'TGE v2 Ceny jutro',
             'reguly': 'TGE v2 Reguly', 'cena': 'TGE v2 Aktualna cena',
@@ -273,7 +245,6 @@ VARIANTS = {
             'dzis': 'tge_v2_ceny_dzis', 'jutro': 'tge_v2_ceny_jutro',
             'reguly': 'tge_v2_reguly', 'licznik': 'tge_v2_ladowane_godziny',
         },
-        'input_number': 'dict',
     },
 }
 
@@ -285,15 +256,6 @@ IN_NUMBER_CONF = """    name: TGE v2 Ladowane godziny
     mode: box
     icon: mdi:timer-sand"""
 
-IN_NUMBER_CONF_CANON = """      name: TGE Ladowane godziny
-      min: 0
-      max: 24
-      step: 1
-      unit_of_measurement: "h"
-      mode: box
-      icon: mdi:timer-sand"""
-
-
 def build(variant):
     v = VARIANTS[variant]
     fields = {}
@@ -304,10 +266,7 @@ def build(variant):
     for key, value in v['eids'].items():
         fields[f'eid_{key}'] = value
 
-    if v['input_number'] == 'list':
-        body = '  - tge_ladowane_godziny:\n' + IN_NUMBER_CONF_CANON
-    else:
-        body = '  tge_v2_ladowane_godziny:\n' + IN_NUMBER_CONF
+    body = f"  {v['eids']['licznik']}:\n" + IN_NUMBER_CONF
 
     text = HEADER.format(**v)
     text += COMMAND_LINE.format(**fields)

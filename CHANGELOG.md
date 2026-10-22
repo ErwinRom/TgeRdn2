@@ -5,6 +5,31 @@ i `io.hass.version` w `Dockerfile` (muszą być zgodne), a tutaj trafia
 opis zmian. Supervisor HA porównuje `version` przy aktualizacji dodatku —
 bez zmiany numeru HA nie pobierze nowej wersji.
 
+## 2.1.7
+
+- **Testy CLI nie zaleza od daty systemowej.** Fixture zawiera tylko dobe
+  2026-10-21, a `fetch` liczy "dzis" z `date.today()` - od 2026-10-22 trzy
+  testy padaly (`test_fetch_zapisuje_oba_pliki`,
+  `test_fetch_zachowuje_plan_z_poprzedniego_zapisu`, `test_show_z_plikiem`).
+  `tests/test_cli.py` zamraza teraz "dzis" na dobe z fixture. Kod dodatku bez
+  zmian.
+- `MIGRACJA.md`: krok 6 wymienia oba mozliwe helpery do usuniecia -
+  `input_number.tge_v2_ladowane_godziny` (obecny) i
+  `input_number.tgerdn_v2_ladowane_godziny` (sprzed poprawki sluga w 2.1.3).
+- `MIGRACJA.md`: **docelowy jest wariant `tge_v2_`.** Plan sprzatania usuwa
+  tylko konfiguracje v1, a pakiet, automatyzacje i widoki v2 zostaja.
+- **Usunieto kanoniczne pliki HA** (`configuration.yaml`, `automation.yaml`,
+  `lovelace.yaml`). Jedynym wariantem jest v2: `tgerdn_v2.yaml`,
+  `tgerdn_v2_automation.yaml`, `lovelace_v2.yaml`. Encje i `unique_id` v2 bez
+  zmian - zmienil sie tylko naglowek `tgerdn_v2.yaml`.
+- Generator tworzy tylko `tgerdn_v2.yaml`. Naglowek wskazuje poprawna nazwe
+  pliku automatyzacji (bylo `tgerdn_v2__automation.yaml`).
+- Symulator (`tgerdn simulate`) i testy renderowania szablonow dzialaja na
+  plikach i encjach v2 (`sensor.tge_v2_*`, `binary_sensor.tge_v2_*`,
+  `input_number.tge_v2_ladowane_godziny`). Usunieto testy kolizji miedzy
+  wariantami - 105 testow.
+- README (glowne i `tgerdn/homeassistant/`) opisuja instalacje plikow v2.
+
 ## 2.1.6
 
 - **Kanoniczny `lovelace.yaml` zawiera ulepszone widoki** - karte „Plan

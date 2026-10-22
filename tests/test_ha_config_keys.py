@@ -49,10 +49,10 @@ def _load(name: str) -> dict:
 
 @pytest.fixture(scope='module')
 def files():
-    return {name: _load(name) for name in ('configuration.yaml', 'tgerdn_v2.yaml')}
+    return {name: _load(name) for name in ('tgerdn_v2.yaml',)}
 
 
-@pytest.mark.parametrize('name', ['configuration.yaml', 'tgerdn_v2.yaml'])
+@pytest.mark.parametrize('name', ['tgerdn_v2.yaml'])
 def test_command_line_ma_dozwolone_klucze(files, name):
     config = files[name]
     for index, entry in enumerate(config['command_line']):
@@ -65,7 +65,7 @@ def test_command_line_ma_dozwolone_klucze(files, name):
             )
 
 
-@pytest.mark.parametrize('name', ['configuration.yaml', 'tgerdn_v2.yaml'])
+@pytest.mark.parametrize('name', ['tgerdn_v2.yaml'])
 def test_input_number_ma_dozwolone_klucze(files, name):
     """Helper input_number nie akceptuje unique_id - HA odrzuca caly config."""
     config = files[name]
@@ -78,7 +78,7 @@ def test_input_number_ma_dozwolone_klucze(files, name):
         assert 'min' in conf and 'max' in conf, f'input_number.{slug}: brak min/max'
 
 
-@pytest.mark.parametrize('name', ['configuration.yaml', 'tgerdn_v2.yaml'])
+@pytest.mark.parametrize('name', ['tgerdn_v2.yaml'])
 def test_template_ma_dozwolone_klucze(files, name):
     config = files[name]
     for block in config['template']:
@@ -103,7 +103,7 @@ def test_input_number_nie_ma_unique_id(files):
             )
 
 
-@pytest.mark.parametrize('name', ['configuration.yaml', 'tgerdn_v2.yaml'])
+@pytest.mark.parametrize('name', ['tgerdn_v2.yaml'])
 def test_wartosci_atrybutow_template_sa_to_stringi(files, name):
     """Kazda wartosc w `attributes:` template sensora musi byc templatem (stringiem).
 
