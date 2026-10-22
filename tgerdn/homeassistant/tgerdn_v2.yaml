@@ -1,15 +1,14 @@
 # =============================================================================
-#  TGE RDN v2 - encje v2 - wariant równoległy
+#  TGE RDN v2 - encje v2
 # =============================================================================
 #
-#  Do katalogu /config/packages/ - encje maja prefiks tge_v2_, wiec
-#  dzialaja obok starej konfiguracji (bez kolizji unique_id).
-#  W tym wariancie input_number jest slownikiem - w pakiecie
-#  lista jest odrzucana przez HA.
+#  Do katalogu /config/packages/ - encje maja prefiks tge_v2_.
+#  input_number jest slownikiem - w pakiecie lista jest
+#  odrzucana przez HA.
 #
 #  Wymagania wstępne:
 #    1. Pliki JSON w /config/tgerdn/ - robi je dodatek "TGE RDN" (v2).
-#    2. Automatyzacje z tgerdn_v2__automation.yaml.
+#    2. Automatyzacje z tgerdn_v2_automation.yaml.
 # =============================================================================
 
 command_line:

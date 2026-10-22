@@ -21,11 +21,13 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 PACKAGE_DIR = Path(__file__).resolve().parent
 FIXTURE = REPO_ROOT / 'tests' / 'fixtures' / 'tge_fixing_i_page.html'
 SWITCH = 'switch.0xb40ecfd05e500000'
+CONFIG_FILE = 'tgerdn_v2.yaml'
+AUTOMATION_FILE = 'tgerdn_v2_automation.yaml'
 HOURS_IN_DAY = 24
 
 
 def find_ha_dir(explicit: Path | None = None) -> Path | None:
-    """Szuka katalogu z konfiguracja HA (pliki `configuration.yaml` itd.).
+    """Szuka katalogu z konfiguracja HA (pliki `tgerdn_v2.yaml` itd.).
 
     Kolejnosc:
       1. argument explicite,
@@ -42,7 +44,7 @@ def find_ha_dir(explicit: Path | None = None) -> Path | None:
         Path.cwd() / 'homeassistant',
     ]
     for candidate in candidates:
-        if candidate and (candidate / 'configuration.yaml').is_file():
+        if candidate and (candidate / CONFIG_FILE).is_file():
             return candidate
     return None
 
@@ -178,10 +180,10 @@ class HomeAssistantConfig:
         yaml, _, _ = _require()
         self._yaml = yaml
         self.configuration = yaml.safe_load(
-            (self.ha_dir / 'configuration.yaml').read_text(encoding='utf-8')
+            (self.ha_dir / CONFIG_FILE).read_text(encoding='utf-8')
         )
         self.automation = yaml.safe_load(
-            (self.ha_dir / 'automation.yaml').read_text(encoding='utf-8')
+            (self.ha_dir / AUTOMATION_FILE).read_text(encoding='utf-8')
         )
 
         action = self.automation[0]['actions'][0]
@@ -237,15 +239,15 @@ def build_states(
 ) -> dict[str, dict]:
     """Buduje zbior stanow encji HA (tak jak command_line je wystawia)."""
     return {
-        'sensor.tge_rdn_cena_dzis': {
+        'sensor.tge_v2_ceny_dzis': {
             'state': str(payload_today.get('data_points', 0)),
             'attributes': payload_today,
         },
-        'sensor.tge_rdn_cena_jutro': {
+        'sensor.tge_v2_ceny_jutro': {
             'state': str(payload_tomorrow.get('data_points', 0)),
             'attributes': payload_tomorrow,
         },
-        'input_number.tge_ladowane_godziny': {
+        'input_number.tge_v2_ladowane_godziny': {
             'state': str(charged),
             'attributes': {'unit_of_measurement': 'h'},
         },
@@ -283,7 +285,7 @@ def simulate_day(
                               charged=len(charged_hours), switch_on=switch_on)
         config.render_entities(states, moment)
 
-        window = states.get('binary_sensor.tge_najtansze_5h', {})
+        window = states.get('binary_sensor.tge_v2_najtansze_5h', {})
         attributes = window.get('attributes', {})
         raw_window = attributes.get('window_hours')
         if isinstance(raw_window, str) and raw_window.strip():

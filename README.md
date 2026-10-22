@@ -28,11 +28,11 @@ TgeRdn2/                      # = katalog dodatku HA
 | Zależności produkcyjne | aiohttp, beautifulsoup4, schedule | **żadne** (urllib + html.parser) |
 | Plan ładowania | liczony w Jinja w HA | **liczony w Pythonie**, raz na dobę |
 | Gwarancja 5 h po awarii HA | brak (godziny przepadały) | **odbudowa okna** z najtańszych wolnych godzin |
-| Plan na jutro | brak | tak (`binary_sensor.tge_najtansze_5h_jutro`) |
+| Plan na jutro | brak | tak (`binary_sensor.tge_v2_najtansze_5h_jutro`) |
 | Koszt ładowania / oszczędność | brak | w JSON-ie i na karcie |
 | Zapis pliku | zwykły `open()` | **atomowy** (tmp + `os.replace`) |
 | Harmonogram | własny scheduler w tle | wbudowany w `tgerdn serve` (nadal bez crona) |
-| Testy | 65 | 79 (+ rendering szablonów i symulacja doby) |
+| Testy | 65 | 105 (+ rendering szablonów i symulacja doby) |
 | Generator YAML | usunięty, ale struktura plików rozrosła się | jeden pakiet, jeden format wyjściowy |
 
 ---
@@ -60,8 +60,8 @@ ręcznie.
 Dodatek zapisuje dwa pliki, które czyta Home Assistant:
 
 ```
-/config/tgerdn/today.json      → sensor.tge_rdn_cena_dzis
-/config/tgerdn/tomorrow.json   → sensor.tge_rdn_cena_jutro
+/config/tgerdn/today.json      → sensor.tge_v2_ceny_dzis
+/config/tgerdn/tomorrow.json   → sensor.tge_v2_ceny_jutro
 ```
 
 ### 3. Pliki konfiguracyjne HA
@@ -70,9 +70,9 @@ Wklej w swoim Home Assistant (z katalogu `tgerdn/homeassistant/`):
 
 | Plik | Gdzie wkleić |
 |---|---|
-| `configuration.yaml` | katalog `packages/` — encje + szablony (patrz niżej) |
-| `automation.yaml` | `automation.yaml` (główny) — ładowanie auta + licznik |
-| `lovelace.yaml` | dashboard (nowy widok) |
+| `tgerdn_v2.yaml` | katalog `packages/` — encje + szablony (patrz niżej) |
+| `tgerdn_v2_automation.yaml` | `automations.yaml` (główny) — ładowanie auta + licznik |
+| `lovelace_v2.yaml` | dashboard (nowy widok) |
 
 **Encje w katalogu `packages/`.** Jeśli używasz pakietów HA:
 
@@ -81,8 +81,8 @@ Wklej w swoim Home Assistant (z katalogu `tgerdn/homeassistant/`):
 packages: !include_dir_named packages
 ```
 
-to plik `configuration.yaml` z tego katalogu wrzuć do `/config/packages/`
-(np. `/config/packages/tgerdn.yaml`). Każdy plik w tym katalogu jest
+to plik `tgerdn_v2.yaml` z tego katalogu wrzuć do `/config/packages/`
+(`/config/packages/tgerdn_v2.yaml`). Każdy plik w tym katalogu jest
 wczytywany jako osobny pakiet — nie trzeba dopisywać `!include` do
 `configuration.yaml`.
 
@@ -121,10 +121,11 @@ co `- id:`):
 > `/config/automations/` i w `configuration.yaml` użyj
 > `automation: !include_dir_list automations/`.
 
-W `configuration.yaml` popraw tylko dwie rzeczy:
+Popraw tylko dwie rzeczy:
 
-* ścieżkę w `command:` (`/config/tgerdn/today.json` — domyślnie poprawna),
-* `entity_id` przelącznika w `automation.yaml` (domyślnie
+* ścieżkę w `command:` w `tgerdn_v2.yaml` (`/config/tgerdn/today.json` —
+  domyślnie poprawna),
+* `entity_id` przelącznika w `tgerdn_v2_automation.yaml` (domyślnie
   `switch.0xb40ecfd05e500000` — Twój z v1).
 
 Szczegóły: [`tgerdn/homeassistant/README.md`](tgerdn/homeassistant/README.md).
@@ -138,11 +139,11 @@ Szczegóły: [`tgerdn/homeassistant/README.md`](tgerdn/homeassistant/README.md).
         │
         ├─ tgerdn serve ──► tge.pl ──► today.json / tomorrow.json
         │                                    │
-        │                        command_line│  sensor.tge_rdn_cena_dzis
-        │                                    │  sensor.tge_rdn_cena_jutro
+        │                        command_line│  sensor.tge_v2_ceny_dzis
+        │                                    │  sensor.tge_v2_ceny_jutro
         │                                    ▼
-        │                    sensor.tge_rdn_aktualna_cena
-        │                    binary_sensor.tge_najtansze_5h
+        │                    sensor.tge_v2_aktualna_cena
+        │                    binary_sensor.tge_v2_najtansze_5h
         │                                    │
         └────────────────────────────────────▼
                                     automatyzacja → switch.0xb40ecfd...
@@ -172,7 +173,7 @@ Dzięki temu:
   gdy wszystko kosztuje ponad 1 PLN/kWh).
 
 **Odbudowa po awarii.** Jeśli Home Assistant był wyłączony w najtańszych
-godzinach, te godziny przepadają. Licznik `input_number.tge_ladowane_godziny`
+godzinach, te godziny przepadają. Licznik `input_number.tge_v2_ladowane_godziny`
 pamięta, ile godzin faktycznie się naładowało, a okno dokleja wtedy
 **najtańsze z pozostałych godzin doby** — limit 5 h zostaje dotrzymany, a cena
 pozostaje najniższa z dostępnych.
@@ -234,7 +235,7 @@ W dodatku: opcje w UI (`config.yaml`). Poza dodatkiem: zmienne środowiskowe.
 | `TGERDN_TIMEOUT` | `30` | timeout HTTP w sekundach |
 | `TGERDN_RETRIES` | `3` | liczba prób pobrania |
 
-Te same wartości muszą być w `sensor.tge_rdn_reguly` w Home Assistant —
+Te same wartości muszą być w `sensor.tge_v2_reguly` w Home Assistant —
 progi histerezy i limit ceny są tam, żeby automatyzacja nie miała ich
 zaszytych na sztywno.
 
@@ -281,15 +282,16 @@ więc **stare szablony i karty działają bez zmian**. Nowe pola to `margin`
 
 * **Ceny na jutro** pojawiają się dopiero ok. 12:00 — do tego czasu
   `tomorrow.json` jest pusty, a karta „Jutro” pokazuje „Brak danych”.
-* **Okno na jutro** (`binary_sensor.tge_najtansze_5h_jutro`) nie ma odbudowy —
+* **Okno na jutro** (`binary_sensor.tge_v2_najtansze_5h_jutro`) nie ma odbudowy —
   jutro można planować dokładnie.
 * **HA w trakcie okna** = przełącznik zostaje włączony (relé fizyczne) →
   możliwa jedna godzina nadmiaru.
 * **Marginesy dostawy** (0,05 / 0,28) są wpisane ręcznie — to Twoja taryfa
-  okienkowa; popraw w opcjach dodatku i w `sensor.tge_rdn_reguly`.
-* **Dodatek nie jest kompatybilny z v1** — inne `entity_id` plików
-  (`today.json` / `tomorrow.json`) i brak sensora `tge_biezaca_cena_godzinowa`.
-  Stare karty działają, bo klucze w JSON-ie zostały zachowane.
+  okienkowa; popraw w opcjach dodatku i w `sensor.tge_v2_reguly`.
+* **Dodatek nie jest kompatybilny z v1** — inne pliki (`today.json` /
+  `tomorrow.json`), encje z prefiksem `tge_v2_` (bez historii v1) i brak
+  sensora `tge_biezaca_cena_godzinowa`. Klucze w JSON-ie zostały zachowane,
+  więc stare karty wystarczy przepiąć na nowe `entity_id`.
 # TgeRdn2
 # TgeRdn2
 # TgeRdn2

@@ -5,25 +5,28 @@ Trzy pliki do wklejenia, w kolejności:
 
 | Plik | Co wkleić | Gdzie |
 |---|---|---|
-| `configuration.yaml` | encje `command_line`, `input_number`, szablony | katalog `packages/` (patrz niżej) |
-| `automation.yaml` | ładowanie auta + licznik godzin | `automation.yaml` (główny) |
-| `lovelace.yaml` | karty | dashboard (widok) |
+| `tgerdn_v2.yaml` | encje `command_line`, `input_number`, szablony | katalog `packages/` (patrz niżej) |
+| `tgerdn_v2_automation.yaml` | ładowanie auta + licznik godzin | `automations.yaml` (główny) |
+| `lovelace_v2.yaml` | karty | dashboard (widok) |
+
+`tgerdn_v2.yaml` jest generowany przez `tools/generate_ha_config.py` —
+zmiany wprowadzaj w generatorze, nie w pliku.
 
 ---
 
 ### Gdzie wkleić encje
 
-Encje (`configuration.yaml`) w katalogu `packages/`:
+Encje (`tgerdn_v2.yaml`) w katalogu `packages/`:
 
 ```yaml
 # configuration.yaml
 packages: !include_dir_named packages
 ```
 
-plik z encjami → `/config/packages/tgerdn.yaml`. Nie dopisuj `!include`
+plik z encjami → `/config/packages/tgerdn_v2.yaml`. Nie dopisuj `!include`
 do `configuration.yaml` — katalog wczytuje się sam.
 
-Automatyzacje **nie mogą** być w pakiecie. Zawartość `automation.yaml`
+Automatyzacje **nie mogą** być w pakiecie. Zawartość `tgerdn_v2_automation.yaml`
 wklej **na końcu** swojego `/config/automations.yaml` jako kolejne elementy
 listy (kolumna 0, na poziomie `- id:`).
 
@@ -37,8 +40,8 @@ Scraper zapisuje dwa pliki:
 
 | Plik | Zawartość | Sensor |
 |---|---|---|
-| `today.json` | ceny na dziś + plan | `sensor.tge_rdn_cena_dzis` |
-| `tomorrow.json` | ceny na jutro + plan | `sensor.tge_rdn_cena_jutro` |
+| `today.json` | ceny na dziś + plan | `sensor.tge_v2_ceny_dzis` |
+| `tomorrow.json` | ceny na jutro + plan | `sensor.tge_v2_ceny_jutro` |
 
 Domyślna ścieżka w przykładzie: `/config/tgerdn/` (katalog `config` w
 kontenerze HA). Jeśli HA nie jest w kontenerze, zmień `command:` na
@@ -53,19 +56,19 @@ szablony czytają z nich ceny i okno ładowania.
 
 | Encja | Typ | Rola |
 |---|---|---|
-| `sensor.tge_rdn_cena_dzis` | command_line | ceny dziś + atrybuty (`fixing_i_prices`, `plan`, …) |
-| `sensor.tge_rdn_cena_jutro` | command_line | ceny jutro |
-| `sensor.tge_rdn_reguly` | template | progi, marginesy, ile godzin — **jedyne miejsce do edycji** |
-| `sensor.tge_rdn_aktualna_cena` | template | cena bieżącej godziny (z marginesem) |
-| `binary_sensor.tge_najtansze_5h` | template | czy teraz jest okno ładowania |
-| `binary_sensor.tge_najtansze_5h_jutro` | template | okno ładowania na jutro |
-| `input_number.tge_ladowane_godziny` | input_number | licznik godzin ładowania (doda go automatyzacja) |
+| `sensor.tge_v2_ceny_dzis` | command_line | ceny dziś + atrybuty (`fixing_i_prices`, `plan`, …) |
+| `sensor.tge_v2_ceny_jutro` | command_line | ceny jutro |
+| `sensor.tge_v2_reguly` | template | progi, marginesy, ile godzin — **jedyne miejsce do edycji** |
+| `sensor.tge_v2_aktualna_cena` | template | cena bieżącej godziny (z marginesem) |
+| `binary_sensor.tge_v2_najtansze_5h` | template | czy teraz jest okno ładowania |
+| `binary_sensor.tge_v2_najtansze_5h_jutro` | template | okno ładowania na jutro |
+| `input_number.tge_v2_ladowane_godziny` | input_number | licznik godzin ładowania (doda go automatyzacja) |
 
 ---
 
 ## 3. Automatyzacje
 
-**`tge_charging_car`** — steruje przełącznikiem:
+**`tge_v2_charging_car`** — steruje przełącznikiem:
 
 * **ON**: jesteśmy w oknie najtańszych godzin **lub** cena spadła poniżej
   progu `charge_below` (histereza),
@@ -73,7 +76,7 @@ szablony czytają z nich ceny i okno ładowania.
 * gdy cena jest nieznana → poza oknem ładowanie jest **wyłączane** (nie palimy
   prądu w ciemno), wewnątrz okna zostaje włączone.
 
-**`tge_charging_counter`** — co godzinę zwiększa licznik, gdy przełącznik jest
+**`tge_v2_charging_counter`** — co godzinę zwiększa licznik, gdy przełącznik jest
 włączony; o 00:00 zeruje go. Licznik służy do odbudowy okna po awarii.
 
 ### Co zmienić w automatyzacji
@@ -85,7 +88,7 @@ entity_id w obu automatyzacjach.
 
 ## 4. Reguły (jedno miejsce do edycji)
 
-`Sensor tge_rdn_reguly` w `configuration.yaml`:
+`sensor.tge_v2_reguly` w `tgerdn_v2.yaml` (zmieniaj w generatorze):
 
 ```yaml
 charging_hours: 5      # godzin ładowania dziennie
@@ -104,7 +107,7 @@ bo to Python liczy plan, a HA tylko go odtwarza.
 
 ## 5. Karty
 
-`lovelace.yaml` zawiera dwa widoki:
+`lovelace_v2.yaml` zawiera dwa widoki:
 
 * **Kompas Energetyczny** — siatka 24 godzin na dziś i jutro (kolor = cena
   z marginesem), wskaźnik ceny bieżącej, **plan ładowania** (okno, koszt
@@ -119,22 +122,24 @@ Fixing I, zamień w `data_generator` `p.total_pln ?? p.rce_pln` na `p.rce_pln`.
 
 ---
 
-## 6. Kompatybilność z v1
+## 6. Przejście z v1
 
-| Element v1 | Stan w v2 |
+Encje v2 mają prefiks `tge_v2_` i własne `unique_id` — **nie przejmują**
+`entity_id` ani historii encji v1. Klucze w plikach JSON zostały zachowane
+(`fixing_i_prices[].hour`, `.fixing_i_price_pln_kwh`, `prices[].dtime`,
+`.rce_pln`, `data_points`, `data_fetched`), więc własne karty da się
+przepiąć, zmieniając tylko `entity_id`.
+
+| Element v1 | Odpowiednik w v2 |
 |---|---|
-| `sensor.tge_rdn_cena_dzis` / `_jutro` | te same `entity_id` |
-| `sensor.tge_rdn_aktualna_cena` | ten sam `entity_id` (+ atrybuty z planem) |
-| `binary_sensor.tge_najtansze_5h` | ten sam `entity_id` |
-| `fixing_i_prices[].hour` / `.fixing_i_price_pln_kwh` | bez zmian |
-| `prices[].dtime` / `.period` / `.rce_pln` | bez zmian |
-| `data_points`, `data_fetched`, `last_update`, `friendly_name` | bez zmian |
+| `sensor.tge_rdn_cena_dzis` / `_jutro` | `sensor.tge_v2_ceny_dzis` / `_jutro` |
+| `sensor.tge_rdn_aktualna_cena` | `sensor.tge_v2_aktualna_cena` (+ atrybuty z planem) |
+| `binary_sensor.tge_najtansze_5h` | `binary_sensor.tge_v2_najtansze_5h` |
 | `sensor.tge_biezaca_cena_godzinowa` | **usuń** (duplikat) |
-| `tgerdn_prices.json`, `tgerdn_prices_tomorrow.json` | → `today.json`, `tomorrow.json` |
-| `tge_rdn_scraper/config.yaml` | → zmienne środowiskowe / `sensor.tge_rdn_reguly` |
+| `tgerdn_prices.json`, `tgerdn_prices_tomorrow.json` | `today.json`, `tomorrow.json` |
+| `tge_rdn_scraper/config.yaml` | opcje dodatku / `sensor.tge_v2_reguly` |
 
-Jeśli masz w HA własny `sensor.tge_rdn_aktualna_cena` (template), usuń go —
-w v2 tę nazwę przejmuje szablon z pliku `configuration.yaml`.
+Sprzątanie konfiguracji v1 krok po kroku: [`MIGRACJA.md`](../../MIGRACJA.md).
 
 ---
 
@@ -153,5 +158,5 @@ cat /config/tgerdn/today.json | python3 -m json.tool | head -40
 **Cena pokazuje `unavailable`** — plik JSON nie istnieje, jest pusty albo
 `data_fetched` = false (TGE nie opublikował jeszcze tej doby).
 
-**Przełącznik nie włącza się** — sprawdź encję `sensor.tge_rdn_reguly`
-i to, czy `sensor.tge_rdn_aktualna_cena` pokazuje liczbę, a nie `unavailable`.
+**Przełącznik nie włącza się** — sprawdź encję `sensor.tge_v2_reguly`
+i to, czy `sensor.tge_v2_aktualna_cena` pokazuje liczbę, a nie `unavailable`.

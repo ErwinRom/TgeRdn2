@@ -34,28 +34,23 @@ def _load(name: str) -> list:
 
 
 @pytest.fixture(scope='module')
-def canonical():
-    return _load('automation.yaml')
-
-
-@pytest.fixture(scope='module')
-def parallel():
+def automations():
     return _load('tgerdn_v2_automation.yaml')
 
 
-@pytest.mark.parametrize('name', ['automation.yaml', 'tgerdn_v2_automation.yaml'])
+@pytest.mark.parametrize('name', ['tgerdn_v2_automation.yaml'])
 def test_plik_to_lista_automatyzacji(name):
     assert _load(name)
 
 
-@pytest.mark.parametrize('name', ['automation.yaml', 'tgerdn_v2_automation.yaml'])
+@pytest.mark.parametrize('name', ['tgerdn_v2_automation.yaml'])
 def test_każda_automatyzacja_ma_dozwolone_klucze(name):
     for automation in _load(name):
         extra = set(automation) - AUTOMATION_KEYS
         assert not extra, f'{name}: automatyzacja {automation.get("id")} ma niedozwolone klucze {extra}'
 
 
-@pytest.mark.parametrize('name', ['automation.yaml', 'tgerdn_v2_automation.yaml'])
+@pytest.mark.parametrize('name', ['tgerdn_v2_automation.yaml'])
 def test_każda_automatyzacja_ma_id_alias_i_akcje(name):
     for automation in _load(name):
         assert automation.get('id'), 'automatyzacja bez id'
@@ -65,7 +60,7 @@ def test_każda_automatyzacja_ma_id_alias_i_akcje(name):
         )
 
 
-@pytest.mark.parametrize('name', ['automation.yaml', 'tgerdn_v2_automation.yaml'])
+@pytest.mark.parametrize('name', ['tgerdn_v2_automation.yaml'])
 def test_choose_i_default_sa_rodzestwami(name):
     """`default` jest rodzenstwem `choose` w ramach jednej akcji.
 
@@ -86,7 +81,7 @@ def test_choose_i_default_sa_rodzestwami(name):
                 assert action['default'], 'pusty `default`'
 
 
-@pytest.mark.parametrize('name', ['automation.yaml', 'tgerdn_v2_automation.yaml'])
+@pytest.mark.parametrize('name', ['tgerdn_v2_automation.yaml'])
 def test_warunki_i_akcje_sa_listami(name):
     for automation in _load(name):
         for action in automation.get('actions', []):
@@ -98,7 +93,7 @@ def test_warunki_i_akcje_sa_listami(name):
                 assert isinstance(action.get('then', []), list)
 
 
-@pytest.mark.parametrize('name', ['automation.yaml', 'tgerdn_v2_automation.yaml'])
+@pytest.mark.parametrize('name', ['tgerdn_v2_automation.yaml'])
 def test_triggery_sa_lista(name):
     for automation in _load(name):
         triggers = automation.get('triggers', automation.get('trigger'))
@@ -107,17 +102,7 @@ def test_triggery_sa_lista(name):
         )
 
 
-def test_warianty_nie_maja_tego_samego_id(canonical, parallel):
-    canonical_ids = {a['id'] for a in canonical}
-    parallel_ids = {a['id'] for a in parallel}
-    assert not (canonical_ids & parallel_ids), (
-        f'kolizja id miedzy wariantami: {canonical_ids & parallel_ids}'
-    )
-
-
-def test_przelaczniki_sa_te_same_w_obie_wariantach(canonical, parallel):
-    """Oba warianty steruja tym samym przelacznikiem - inaczej dwa niezalezne
-    uklady laduja auto w roznych godzinach."""
+def test_automatyzacja_steruje_przelacznikiem(automations):
     def switches(automations):
         found = set()
         for automation in automations:
@@ -132,8 +117,7 @@ def test_przelaczniki_sa_te_same_w_obie_wariantach(canonical, parallel):
                             found.add(entity)
         return found
 
-    assert switches(canonical) == switches(parallel)
-    assert switches(canonical), 'zadna automatyzacja nie steruje przelacznikiem'
+    assert switches(automations), 'zadna automatyzacja nie steruje przelacznikiem'
 
 
 def _walk(node):

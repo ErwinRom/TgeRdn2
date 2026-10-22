@@ -30,12 +30,6 @@ def _load(name: str) -> dict:
 
 
 @pytest.fixture(scope='module')
-def root_config():
-    """Plik glowny - encje wklejane do configuration.yaml."""
-    return _load('configuration.yaml')
-
-
-@pytest.fixture(scope='module')
 def package_config():
     """Wariant pakietowy - encje w katalogu packages/."""
     return _load('tgerdn_v2.yaml')
@@ -45,20 +39,18 @@ def _command_line_entries(config: dict) -> list:
     return config['command_line']
 
 
-@pytest.mark.parametrize('name', ['configuration.yaml', 'tgerdn_v2.yaml'])
-def test_command_line_jest_lista(name):
-    config = _load(name)
+def test_command_line_jest_lista(package_config):
+    config = package_config
     assert isinstance(config['command_line'], list)
 
 
-@pytest.mark.parametrize('name', ['configuration.yaml', 'tgerdn_v2.yaml'])
-def test_command_line_platform_to_jeden_dict(name):
+def test_command_line_platform_to_jeden_dict(package_config):
     """`sensor:` mapuje do POJEDYNCZEGO slownika, nie do listy.
 
     HA wymaga tego w COMBINED_SCHEMA integracji command_line - lista powoduje
     bled "expected a mapping for dictionary value 'command_line->N->sensor'".
     """
-    config = _load(name)
+    config = package_config
     for index, entry in enumerate(_command_line_entries(config)):
         assert isinstance(entry, dict), f'wpis command_line[{index}] to nie slownik'
         for platform, platform_config in entry.items():
@@ -71,17 +63,12 @@ def test_command_line_platform_to_jeden_dict(name):
             assert 'name' in platform_config, f'command_line[{index}].{platform} bez name'
 
 
-@pytest.mark.parametrize('name', ['configuration.yaml', 'tgerdn_v2.yaml'])
-def test_command_line_ma_unikalne_id(name):
-    config = _load(name)
+def test_command_line_ma_unikalne_id(package_config):
+    config = package_config
     ids = [entry[platform]['unique_id']
            for entry in _command_line_entries(config)
            for platform in entry]
     assert len(ids) == len(set(ids)), f'powtorzone unique_id: {ids}'
-
-
-def test_input_number_w_pliku_glownym_ma_slownik_lub_liste(root_config):
-    assert isinstance(root_config['input_number'], (dict, list))
 
 
 def test_input_number_w_pakiecie_to_slownik(package_config):
@@ -94,11 +81,10 @@ def test_input_number_w_pakiecie_to_slownik(package_config):
         assert 'min' in conf and 'max' in conf
 
 
-@pytest.mark.parametrize('name', ['configuration.yaml', 'tgerdn_v2.yaml'])
-def test_template_jest_lista(name):
+def test_template_jest_lista(package_config):
     """Integracja template ma PACKAGE_MERGE_HINT = 'list' - lista jest poprawna
     takze w pakiecie."""
-    config = _load(name)
+    config = package_config
     assert isinstance(config['template'], list)
     for block in config['template']:
         assert isinstance(block, dict)
@@ -109,32 +95,10 @@ def test_template_jest_lista(name):
                 assert 'name' in entity and 'unique_id' in entity
 
 
-@pytest.mark.parametrize('name', ['configuration.yaml', 'tgerdn_v2.yaml'])
-def test_encje_maja_id_i_nazwe(name):
-    config = _load(name)
+def test_encje_maja_id_i_nazwe(package_config):
+    config = package_config
     for block in config['template']:
         for entities in block.values():
             for entity in entities:
                 assert entity.get('unique_id'), f'encja bez unique_id: {entity.get("name")}'
                 assert entity.get('name'), 'encja bez name'
-
-
-def test_wariant_pakietowy_nie_koliduje_z_plikiem_glownym(root_config, package_config):
-    """Oba zestawy encji musza dzialac obok siebie - inaczej HA odrzuci config."""
-    def ids(config):
-        found = set()
-        for entry in config.get('command_line', []):
-            for conf in entry.values():
-                found.add(conf['unique_id'])
-        for block in config.get('template', []):
-            for entities in block.values():
-                for entity in entities:
-                    found.add(entity['unique_id'])
-        for conf in (config.get('input_number') or {}).values() if isinstance(
-                config.get('input_number'), dict) else []:
-            if isinstance(conf, dict) and 'unique_id' in conf:
-                found.add(conf['unique_id'])
-        return found
-
-    wspolne = ids(root_config) & ids(package_config)
-    assert not wspolne, f'kolizja unique_id miedzy plikiem glownym a pakietem: {wspolne}'

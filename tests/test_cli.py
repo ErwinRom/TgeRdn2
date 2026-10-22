@@ -1,10 +1,24 @@
 """Testy wiersza polecen (bez sieci - pobieranie jest podmienione)."""
 
 import json
+from datetime import date
 
 import pytest
 
 from tgerdn import cli
+
+
+@pytest.fixture(autouse=True)
+def frozen_today(monkeypatch, fixings):
+    """'Dzis' = doba z fixture - inaczej testy zaleza od daty systemowej."""
+    fixture_day = date.fromisoformat(fixings[0].day)
+
+    class FrozenDate(date):
+        @classmethod
+        def today(cls):
+            return cls.fromordinal(fixture_day.toordinal())
+
+    monkeypatch.setattr(cli, 'date', FrozenDate)
 
 
 @pytest.fixture
