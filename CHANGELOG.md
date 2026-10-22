@@ -5,6 +5,20 @@ i `io.hass.version` w `Dockerfile` (muszą być zgodne), a tutaj trafia
 opis zmian. Supervisor HA porównuje `version` przy aktualizacji dodatku —
 bez zmiany numeru HA nie pobierze nowej wersji.
 
+## 2.1.11
+
+- **Automatyzacja ladowania: `mode: queued` zamiast `single`.** O pelnej
+  godzinie w tej samej sekundzie przychodzi kilka triggerow (`time_pattern`,
+  nowa cena, zmiana okna najtanszych godzin, licznik godzin ladowania).
+  Przy `single` HA logowal "Already running" i odrzucal kolejne wywolania,
+  a odrzucone moglo byc to, ktore widzialo juz nowy stan okna - przelacznik
+  czekal wtedy do nastepnej godziny. Akcje sa idempotentne (kazda galaz
+  sprawdza stan przelacznika), wiec kolejkowanie jest bezpieczne.
+- **Skill Claude Code `tgerdn`** (`.claude/skills/tgerdn/`): architektura,
+  pliki HA, pulapki, konwencje wersjonowania. Prywatne dane srodowiska
+  zyja w `.claude/local/` (poza gitem); `tests/test_repo_public.py`
+  pilnuje, ze nie trafia do repo.
+
 ## 2.1.10
 
 - **Marginesy z faktury (Energa, G12, 2026).** `window_margin` 0,05 -> 0,0993

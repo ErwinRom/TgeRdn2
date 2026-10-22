@@ -60,7 +60,12 @@
             - action: switch.turn_off
               target:
                 entity_id: switch.0xb40ecfd05e500000
-  mode: single
+  # O pelnej godzinie kilka triggerow przychodzi w tej samej sekundzie
+  # (time_pattern, nowa cena, zmiana okna, licznik godzin). Przy `single`
+  # HA odrzuca kolejne ("Already running"), a odrzucony run mogl widziec
+  # juz nowy stan okna. Akcje sa idempotentne, wiec kolejkujemy.
+  mode: queued
+  max: 10
 
 - id: tge_v2_charging_counter
   alias: Licznik godzin ładowania (TGE)

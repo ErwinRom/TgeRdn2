@@ -292,6 +292,3 @@ więc **stare szablony i karty działają bez zmian**. Nowe pola to `margin`
   `tomorrow.json`), encje z prefiksem `tge_v2_` (bez historii v1) i brak
   sensora `tge_biezaca_cena_godzinowa`. Klucze w JSON-ie zostały zachowane,
   więc stare karty wystarczy przepiąć na nowe `entity_id`.
-# TgeRdn2
-# TgeRdn2
-# TgeRdn2

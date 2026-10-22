@@ -162,3 +162,12 @@ def _walk(node):
     elif isinstance(node, list):
         for value in node:
             yield from _walk(value)
+
+
+def test_ladowanie_nie_odrzuca_rownoczesnych_triggerow(automations):
+    # O pelnej godzinie time_pattern, cena, okno i licznik zmieniaja sie w tej
+    # samej sekundzie - `single` daje "Already running" i gubi ostatni stan.
+    automation = next(a for a in automations if a['id'] == 'tge_v2_charging_car')
+    assert automation.get('mode') in ('queued', 'restart'), (
+        'tge_v2_charging_car musi kolejkowac rownoczesne triggery'
+    )
