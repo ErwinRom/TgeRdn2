@@ -226,11 +226,11 @@ W dodatku: opcje w UI (`config.yaml`). Poza dodatkiem: zmienne środowiskowe.
 |---|---|---|
 | `TGERDN_OUTPUT_DIR` | `~/.local/share/tgerdn` | katalog z plikami JSON |
 | `TGERDN_CHARGING_HOURS` | `5` | godzin ładowania dziennie |
-| `TGERDN_WINDOW_MARGIN` | `0.05` | margines dostawy w godzinach okienkowych |
-| `TGERDN_DAY_MARGIN` | `0.28` | margines dostawy w godzinach dziennych |
+| `TGERDN_WINDOW_MARGIN` | `0.0993` | opłaty zmienne netto w strefie nocnej G12 (sieciowa 0,0558 + jakościowa, OZE, kogeneracyjna 0,0435) |
+| `TGERDN_DAY_MARGIN` | `0.3276` | opłaty zmienne netto w strefie dziennej G12 (sieciowa 0,2841 + 0,0435) |
 | `TGERDN_WINDOW_HOURS` | `0,1,2,3,4,5,13,14,22,23` | godziny z taryfą okienkową |
-| `TGERDN_CHARGE_BELOW` | `0.2` | włącz ładowanie poniżej progu |
-| `TGERDN_STOP_ABOVE` | `0.4` | wyłącz ładowanie powyżej progu |
+| `TGERDN_CHARGE_BELOW` | `0.4` | włącz ładowanie poniżej progu (cena z marginesem, netto) |
+| `TGERDN_STOP_ABOVE` | `0.5` | wyłącz ładowanie powyżej progu (cena z marginesem, netto) |
 | `TGERDN_MAX_CHARGE_PRICE` | `0` | twardy limit ceny (0 = wyłączony) |
 | `TGERDN_TIMEOUT` | `30` | timeout HTTP w sekundach |
 | `TGERDN_RETRIES` | `3` | liczba prób pobrania |
@@ -251,15 +251,15 @@ zaszytych na sztywno.
   "data_fetched": true,
   "data_points": 24,
   "unit": "PLN/kWh",
-  "tariff": { "charging_hours": 5, "charge_below": 0.2, "stop_above": 0.4 },
+  "tariff": { "charging_hours": 5, "charge_below": 0.4, "stop_above": 0.5 },
   "fixing_i_prices": [
     { "data_dostawy": "2026-10-21", "hour": 1, "fixing_i_price_pln_kwh": 0.60177,
-      "margin": 0.05, "total": 0.65177, "period": "00:00-01:00",
+      "margin": 0.0993, "total": 0.70107, "period": "00:00-01:00",
       "dtime": "2026-10-21T00:00:00" }
   ],
   "prices": [
     { "dtime": "2026-10-21T00:00:00", "period": "00:00-01:00",
-      "rce_pln": 0.60177, "total_pln": 0.65177, "business_date": "2026-10-21" }
+      "rce_pln": 0.60177, "total_pln": 0.70107, "business_date": "2026-10-21" }
   ],
   "plan": {
     "hours": [3, 4, 5, 14, 15],

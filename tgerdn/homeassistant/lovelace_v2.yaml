@@ -51,22 +51,22 @@ views:
                     {%- set vals = state_attr(entity_id, 'fixing_i_prices') or [] -%}
                     {%- set cell = (vals | selectattr('hour', 'equalto', hour + 1) | list) | first | default(none, true) -%}
                     {%- set price = none -%}
-                    {%- if cell and is_number(cell.fixing_i_price_pln_kwh) -%}
-                      {%- set price = cell.fixing_i_price_pln_kwh | float -%}
+                    {%- if cell and is_number(cell.total) -%}
+                      {%- set price = cell.total | float -%}
                     {%- endif -%}
                     {%- set fg = '#9CA3AF' -%}
                   {%- if price is not none %}
-                    {%- if price < 0.45 %}
-                      {# Zalecane oszczedzanie - Ciemnozielony #}
+                    {%- if price < 0.50 %}
+                      {# Tanio, ponizej stop_above - Ciemnozielony #}
                       {%- set fg = '#236B11' %}
-                    {%- elif price < 0.75 %}
-                      {# Zalecane uzytkowanie - Jasnozielony/Limonkowy #}
+                    {%- elif price < 0.80 %}
+                      {# Ponizej mediany - Jasnozielony/Limonkowy #}
                       {%- set fg = '#98C21D' %}
-                    {%- elif price < 1.00 %}
-                      {# Normalne uzytkowanie - Zolty/Bursztynowy #}
+                    {%- elif price < 1.20 %}
+                      {# Powyzej mediany - Zolty/Bursztynowy #}
                       {%- set fg = '#F2C433' %}
                     {%- else %}
-                      {# Wymagane ograniczenie - Czerwony #}
+                      {# Drogo, gorne ~15% godzin - Czerwony #}
                       {%- set fg = '#E42314' %}
                     {%- endif %}
                   {%- endif %}
@@ -142,16 +142,16 @@ views:
                     {%- set vals = state_attr(entity_id, 'fixing_i_prices') or [] -%}
                     {%- set cell = (vals | selectattr('hour', 'equalto', hour + 1) | list) | first | default(none, true) -%}
                     {%- set price = none -%}
-                    {%- if cell and is_number(cell.fixing_i_price_pln_kwh) -%}
-                      {%- set price = cell.fixing_i_price_pln_kwh | float -%}
+                    {%- if cell and is_number(cell.total) -%}
+                      {%- set price = cell.total | float -%}
                     {%- endif -%}
                     {%- set fg = '#9CA3AF' -%}
                   {%- if price is not none %}
-                    {%- if price < 0.45 %}
+                    {%- if price < 0.50 %}
                       {%- set fg = '#236B11' %}
-                    {%- elif price < 0.75 %}
+                    {%- elif price < 0.80 %}
                       {%- set fg = '#98C21D' %}
-                    {%- elif price < 1.00 %}
+                    {%- elif price < 1.20 %}
                       {%- set fg = '#F2C433' %}
                     {%- else %}
                       {%- set fg = '#E42314' %}
@@ -201,26 +201,28 @@ views:
         cards:
           - type: markdown
             content: >
-              <font color="#236B11" size="6">&#9632;</font>&nbsp; Zalecane
-              użytkowanie
+              Cena z opłatami zmiennymi, netto (PLN/kWh):
 
-              <font color="#98C21D" size="6">&#9632;</font>&nbsp; Normalne
-              użytkowanie
+              <font color="#236B11" size="6">&#9632;</font>&nbsp; poniżej 0,50 -
+              tanio, ładowanie
 
-              <font color="#F2C433" size="6">&#9632;</font>&nbsp; Zalecane
-              oszczędzanie
+              <font color="#98C21D" size="6">&#9632;</font>&nbsp; 0,50-0,80 -
+              poniżej mediany
 
-              <font color="#E42314" size="6">&#9632;</font>&nbsp; Wymagane
-              ograniczanie
+              <font color="#F2C433" size="6">&#9632;</font>&nbsp; 0,80-1,20 -
+              powyżej mediany
+
+              <font color="#E42314" size="6">&#9632;</font>&nbsp; od 1,20 -
+              drogo
             text_only: true
           - type: gauge
             entity: sensor.tge_v2_aktualna_cena
             severity:
               green: 0
-              yellow: 0.75
-              red: 1
+              yellow: 0.8
+              red: 1.2
             needle: true
-            max: 1.5
+            max: 2
           - type: markdown
             title: Plan ładowania
             content: >
@@ -286,7 +288,7 @@ views:
           - type: custom:apexcharts-card
             header:
               show: true
-              title: TGE RDN - ceny dzisiaj
+              title: TGE RDN - ceny dzisiaj (z opłatami zmiennymi, netto)
             graph_span: 24h
             span:
               start: day
@@ -306,15 +308,15 @@ views:
                   colors:
                     ranges:
                       - from: -1000000
-                        to: 0.449999
+                        to: 0.499999
                         color: '#236B11'
-                      - from: 0.45
-                        to: 0.749999
+                      - from: 0.5
+                        to: 0.799999
                         color: '#98C21D'
-                      - from: 0.75
-                        to: 0.999999
+                      - from: 0.8
+                        to: 1.199999
                         color: '#F2C433'
-                      - from: 1
+                      - from: 1.2
                         to: 1000000
                         color: '#E42314'
             series:
@@ -328,14 +330,14 @@ views:
 
                   return prices.map((p) => [
                     new Date(p.dtime).getTime(),
-                    Number(p.rce_pln)
+                    Number(p.total_pln)
                   ]);
       - type: grid
         cards:
           - type: custom:apexcharts-card
             header:
               show: true
-              title: TGE RDN - ceny jutro
+              title: TGE RDN - ceny jutro (z opłatami zmiennymi, netto)
             graph_span: 24h
             span:
               start: day
@@ -356,15 +358,15 @@ views:
                   colors:
                     ranges:
                       - from: -1000000
-                        to: 0.449999
+                        to: 0.499999
                         color: '#236B11'
-                      - from: 0.45
-                        to: 0.749999
+                      - from: 0.5
+                        to: 0.799999
                         color: '#98C21D'
-                      - from: 0.75
-                        to: 0.999999
+                      - from: 0.8
+                        to: 1.199999
                         color: '#F2C433'
-                      - from: 1
+                      - from: 1.2
                         to: 1000000
                         color: '#E42314'
             series:
@@ -378,6 +380,6 @@ views:
 
                   return prices.map((p) => [
                     new Date(p.dtime).getTime(),
-                    Number(p.rce_pln)
+                    Number(p.total_pln)
                   ]);
         column_span: 2

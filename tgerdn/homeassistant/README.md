@@ -92,11 +92,11 @@ entity_id w obu automatyzacjach.
 
 ```yaml
 charging_hours: 5      # godzin ładowania dziennie
-charge_below: 0.2      # włącz gdy cena <= tego
-stop_above: 0.4        # wyłącz gdy cena >= tego
+charge_below: 0.4      # włącz gdy cena <= tego (spot + margines, netto)
+stop_above: 0.5        # wyłącz gdy cena >= tego
 max_charge_price: 0    # twardy limit ceny (0 = wyłączony)
-window_margin: 0.05    # margines dostawy w godzinach okienkowych
-day_margin: 0.28       # margines dostawy w godzinach dziennych
+window_margin: 0.0993  # opłaty zmienne netto, strefa nocna G12 (Energa 2026)
+day_margin: 0.3276     # opłaty zmienne netto, strefa dzienna G12 (Energa 2026)
 window_hours: [0, 1, 2, 3, 4, 5, 13, 14, 22, 23]
 ```
 
@@ -117,8 +117,14 @@ bo to Python liczy plan, a HA tylko go odtwarza.
 Makro `price_cell` jest zdefiniowane dwa razy (raz na kartę) — Lovelace nie
 pozwala dzielić makr między kartami.
 
-Wykresy czytają `total_pln` (cena z marginesem). Jeśli wolisz sam kurs
-Fixing I, zamień w `data_generator` `p.total_pln ?? p.rce_pln` na `p.rce_pln`.
+Siatka, wykresy i wskaźnik pokazują cenę z marginesem (`total`,
+`total_pln`), netto. Progi kolorów: **< 0,50** ciemnozielony (taniej niż
+`stop_above`, ładowanie), **0,50–0,80** jasnozielony, **0,80–1,20** żółty,
+**≥ 1,20** czerwony. Na cenach z 2026-08..10 to ok. 12% / 35% / 38% / 15%
+godzin (mediana 0,82). Progi są w czterech miejscach: dwa makra
+`price_cell`, `colors.ranges` obu wykresów i `severity` wskaźnika. Jeśli
+wolisz sam kurs Fixing I, zamień w `data_generator` `p.total_pln` na
+`p.rce_pln`.
 
 ---
 
