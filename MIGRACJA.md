@@ -1,27 +1,29 @@
-# Stan migracji HA i plan sprzątania
+# Stan migracji HA
 
-> Dokument powstał 2026-10-21 podczas migracji v1 → v2. Opisuje **co jest
-> zainstalowane**, **co działa** i **co zostało do sprzątania**.
+> Dokument powstał 2026-10-21 podczas migracji v1 → v2. **Migracja
+> zakończona 2026-10-22**: konfiguracja v1 usunięta z HA, działa tylko v2.
 
 ## TL;DR
 
-- Dodatek **v2.1.8** działa, pobiera ceny z tge.pl i zapisuje pliki JSON.
-- W HA działają **dwa komplety encji równolegle** (stary i nowy) — celowo,
-  żeby dało się bezpiecznie porównać działanie przed sprzątaniem.
-- Sprzątanie **nie zostało wykonane**. Wszystko stare działa i może zostać.
+- Dodatek **v2.1.9** pobiera ceny z tge.pl i zapisuje pliki JSON.
+- W HA działa **wyłącznie wariant v2** (encje `tge_v2_*`). Dodatek v1
+  i cała jego konfiguracja są usunięte.
+- Historia encji v1 przepadła. Encje `tge_v2_*` mają historię od 2026-10-21.
 
 ## Co jest zainstalowane w HA
 
-| Plik | Zawartość | Stan |
-|---|---|---|
-| `/config/packages/tgerdn.yaml` | **stare** encje (command_line + template) | do usunięcia w sprzątaniu |
-| `/config/packages/tgerdn_v2.yaml` | **nowe** encje, prefiks `tge_v2_` | **docelowy**, zostaje |
-| `/config/automations.yaml` | stara automatyzacja + 2 nowe z wariantu v2 | usunąć starą, v2 zostają |
-| `/config/configuration.yaml` | blok `template:` w roocie (2 stare encje) | do usunięcia |
-| `/config/ui-lovelace.yaml` | 4 widoki (2 stare + 2 z wariantu v2) | usunąć 2 stare, v2 zostają |
+| Plik | Zawartość |
+|---|---|
+| `/config/packages/tgerdn_v2.yaml` | encje v2 (z `tgerdn/homeassistant/tgerdn_v2.yaml`) |
+| `/config/automations.yaml` | `tge_v2_charging_car`, `tge_v2_charging_counter` (z `tgerdn_v2_automation.yaml`) |
+| `/config/ui-lovelace.yaml` | 2 widoki z `lovelace_v2.yaml` |
 
 Dodatek: `TGE RDN` (v2) z repo `ErwinRom/TgeRdn2` → `/config/tgerdn/today.json`,
 `/config/tgerdn/tomorrow.json`.
+
+Zmiana w repo w tych plikach **nie trafia do HA sama**: pakiet, automatyzacje
+i widoki trzeba po każdej zmianie wkleić ręcznie. Aktualizacja dodatku
+zmienia tylko kod pobierający ceny.
 
 ## Encje nowego wariantu (prefiks `tge_v2_`)
 
@@ -36,32 +38,19 @@ binary_sensor.tge_v2_najtansze_5h_jutro   stan: on/off (plan na jutro)
 input_number.tge_v2_ladowane_godziny      licznik godzin ładowania
 ```
 
-## Plan sprzątania (6 kroków)
+## Przebieg sprzątania (wykonane 2026-10-22)
 
-**Docelowy jest wariant `tge_v2_`** (decyzja z 2026-10-22). Działa i dalej
-będzie rozwijany, więc zostaje w HA w obecnej postaci, a usuwamy tylko
-konfigurację v1. Historia encji v1 przepadnie. Encje `tge_v2_*` mają
-własną historię od 2026-10-21.
-
-Zostaje w HA bez zmian: `/config/packages/tgerdn_v2.yaml`, automatyzacje
-`tge_v2_charging_car` i `tge_v2_charging_counter`, oba widoki z
-`lovelace_v2.yaml`.
-
-1. Wyłączyć, a potem usunąć stary dodatek **v1** („TGE RDN Scraper" z repo
-   `ErwinRom/TgeRdn`) — inaczej oba dodatki pobierają z tge.pl.
-2. Usunąć `/config/packages/tgerdn.yaml` (stare encje command_line + template).
-3. Usunąć blok `template:` (2 stare encje) z roota `/config/configuration.yaml`.
-4. `automations.yaml`: usunąć starą automatyzację (`id: '1791711498340'`).
-   Wariantowe `tge_v2_*` zostają.
-5. `ui-lovelace.yaml`: usunąć 2 stare widoki, zostawić 2 widoki v2.
-6. Wyczyścić z rejestru encje osierocone po krokach 2–3 (stare `sensor.*`
-   i `binary_sensor.*` z v1). Jeśli w HA jeszcze widnieje
-   `input_number.tgerdn_v2_ladowane_godziny` (nazwa sprzed poprawki sluga
-   w 2.1.3), też ją usunąć. Właściwy licznik to
-   `input_number.tge_v2_ladowane_godziny`.
-
-Po każdym kroku: *Narzędzia deweloperskie → Sprawdź konfigurację*, potem
-restart.
+1. Wyłączona stara automatyzacja (`id: '1791711498340'`). Wcześniej
+   naprawiono `tge_v2_charging_car` (2.1.8): przez błąd w `default:` nigdy
+   nie była aktywna, a ładowaniem sterowała tylko automatyzacja v1.
+2. Zatrzymany dodatek v1 („TGE RDN Scraper”, repo `ErwinRom/TgeRdn`).
+3. Usunięta stara automatyzacja z `automations.yaml`.
+4. Usunięte 2 stare widoki z `ui-lovelace.yaml`.
+5. Usunięty `/config/packages/tgerdn.yaml`.
+6. Usunięty blok `template:` (2 stare encje) z `/config/configuration.yaml`.
+7. Sprawdzenie konfiguracji i restart HA.
+8. Wyczyszczone osierocone encje v1 z rejestru.
+9. Odinstalowany dodatek v1.
 
 ## Pułapki (każda z nich kosztowała rundę)
 
@@ -89,7 +78,7 @@ Te reguły są zakodowane w testach `tests/test_ha_config_shape.py`,
 
 ## Stan repo
 
-- Wersja **2.1.8** spójna w `config.yaml`, `Dockerfile`, `CHANGELOG.md`
+- Wersja **2.1.9** spójna w `config.yaml`, `Dockerfile`, `CHANGELOG.md`
   (pilnuje tego `tests/test_manifest.py`).
 - **106 testów** przechodzi (`python3 -m pytest tests/ -q`).
 - W repo jest tylko wariant v2: `tgerdn_v2.yaml` (generowany przez
@@ -99,7 +88,5 @@ Te reguły są zakodowane w testach `tests/test_ha_config_shape.py`,
 
 ## Do zrobienia przy okazji
 
-- Wyłączyć stary dodatek v1 już teraz (krok 1) — dwie instancje pobierają
-  z tge.pl w tym samym czasie.
 - Rozważyć walidację configu schematem HA (venv z Home Assistantem) —
   eliminuje tę klasę błędów zanim trafią do HA.
