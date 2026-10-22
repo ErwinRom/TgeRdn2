@@ -1,13 +1,14 @@
 name: TGE RDN
-version: "2.1.7"
+version: "2.1.8"
 slug: tgerdn
 description: >-
   Pobiera ceny energii Fixing I z giełdy TGE, liczy plan ładowania auta
   (5 najtańszych godzin doby) i zapisuje pliki JSON dla Home Assistant.
 url: https://github.com/ErwinRom/TgeRdn2
 changelog: >
-  Bez zmian w dzialaniu dodatku. Jedynym wariantem konfiguracji HA jest v2
-  (encje tge_v2_) - usunieto pliki kanoniczne; symulator dziala na v2.
+  Poprawiono automatyzacje tge_v2_charging_car - HA odrzucal ja bledem
+  "not a valid option at 'actions[0].default[0].conditions'". Wklej ja
+  ponownie do automations.yaml. Kod dodatku bez zmian.
 startup: application
 boot: auto
 init: false
