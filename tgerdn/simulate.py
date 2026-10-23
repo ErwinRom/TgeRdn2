@@ -200,6 +200,16 @@ class HomeAssistantConfig:
                                 entity.get('state'), entity.get('attributes', {}) or {}))
         return out
 
+    def availability(self) -> dict[str, str]:
+        """Zwraca {entity_id: szablon availability} encji, ktore go maja."""
+        out: dict[str, str] = {}
+        for block in self.configuration.get('template', []):
+            for kind in block:
+                for entity in block[kind]:
+                    if 'availability' in entity:
+                        out[f"{kind}.{slugify(entity['name'])}"] = entity['availability']
+        return out
+
     def render_entities(self, states: dict[str, dict], moment: datetime) -> None:
         """Renderuje encje template i wpisuje ich stany do `states`."""
         env = build_env(states, moment)
@@ -209,8 +219,12 @@ class HomeAssistantConfig:
                 return template
             return env.from_string(template).render().strip()
 
+        availability = self.availability()
         for kind, name, state_template, attributes in self.entities():
             entity_id = f'{kind}.{slugify(name)}'
+            if entity_id in availability and render(availability[entity_id]) != 'True':
+                states[entity_id] = {'state': 'unavailable', 'attributes': {}}
+                continue
             state = render(state_template)
             if kind == 'binary_sensor':
                 # HA zamienia stan template binary_sensora na 'on'/'off'

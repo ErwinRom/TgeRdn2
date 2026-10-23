@@ -8,7 +8,7 @@ ARG BUILD_ARCH=amd64
 FROM python:3.13-slim
 
 LABEL io.hass.type="app" \
-      io.hass.version="2.1.11" \
+      io.hass.version="2.1.12" \
       io.hass.arch="${BUILD_ARCH}"
 
 ENV PYTHONUNBUFFERED=1 \

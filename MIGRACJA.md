@@ -68,6 +68,9 @@ input_number.tge_v2_ladowane_godziny      licznik godzin ładowania
   Helper **nie przyjmuje `unique_id`** (schemat go nie ma).
 - **Atrybuty template sensora** — każda wartość w `attributes:` musi być
   **template'em** (stringiem). Lista/liczba → `template value should be a string`.
+- **Sensor z `unit_of_measurement` musi mieć stan liczbowy.** Tekst
+  `unavailable` ze `state:` daje „Received invalid sensor state … expected
+  a number”. Brak danych zgłaszać przez `availability:`.
 - **`entity_id` helpera `input_number`** = `input_number.<slug klucza>` —
   slug musi się zgadzać z tym, o czym mówią szablony, inaczej `states()`
   zwraca `unknown` i `| float(0)` zamienia to w zero (błąd bez śladu).

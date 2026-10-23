@@ -77,6 +77,87 @@ def test_cena_poprzedniej_godziny_nie_miesza_sie(ha_config, payload):
         assert float(states['sensor.tge_v2_aktualna_cena']['state']) == pytest.approx(expected)
 
 
+def test_sensor_z_jednostka_ma_availability(ha_config):
+    """Regresja: stan 'unavailable' sensora z jednostka HA loguje jako
+    'Received invalid sensor state ... expected a number'."""
+    for block in ha_config.configuration['template']:
+        for entity in block.get('sensor', []):
+            if 'unit_of_measurement' in entity:
+                assert 'availability' in entity, entity['name']
+                assert 'unavailable' not in entity['state'], entity['name']
+
+
+def test_brak_cen_jutra_daje_niedostepny_sensor(ha_config, payload):
+    from tgerdn.publisher import empty_payload
+    from tgerdn.config import Tariff
+
+    empty = empty_payload('2026-10-22', Tariff(), label='tomorrow')
+    states = build_states(payload, empty)
+    ha_config.render_entities(states, DAY.replace(hour=0))
+    assert states['sensor.tge_v2_aktualna_cena_jutro']['state'] == 'unavailable'
+    assert float(states['sensor.tge_v2_aktualna_cena']['state']) == pytest.approx(
+        payload['fixing_i_prices'][0]['total'])
+
+
+def test_cena_jutra_dostepna(ha_config, payload):
+    states = render_at(ha_config, payload, 3)
+    assert float(states['sensor.tge_v2_aktualna_cena_jutro']['state']) == pytest.approx(
+        payload['fixing_i_prices'][3]['total'])
+
+
+def _markdown_cards(node):
+    if isinstance(node, dict):
+        if node.get('type') == 'markdown':
+            yield node
+        for value in node.values():
+            yield from _markdown_cards(value)
+    elif isinstance(node, list):
+        for value in node:
+            yield from _markdown_cards(value)
+
+
+@pytest.mark.parametrize('scenario', ['brak_encji', 'pelne_dane'])
+def test_karty_lovelace_renderuja_sie_bez_encji(ha_config, payload, scenario):
+    """Widok ma pokazac komunikat, a nie blad, gdy encji brak."""
+    from tgerdn.simulate import build_env
+
+    lovelace = yaml.safe_load(
+        (ha_config.ha_dir / 'lovelace_v2.yaml').read_text(encoding='utf-8'))
+    moment = DAY.replace(hour=10)
+    if scenario == 'brak_encji':
+        states = {}
+    else:
+        states = build_states(payload, payload)
+        ha_config.render_entities(states, moment)
+        for entity_id in ('sensor.tge_v2_ceny_dzis', 'sensor.tge_v2_ceny_jutro'):
+            states[entity_id]['last_updated'] = moment
+    env = build_env(states, moment)
+    cards = list(_markdown_cards(lovelace))
+    assert cards
+    for card in cards:
+        out = env.from_string(card['content']).render()
+        if scenario == 'brak_encji' and 'states(' in card['content']:
+            assert 'niedostępn' in out or 'Brak danych' in out or 'Czekamy' in out
+
+
+def test_karty_lovelace_maja_zastepstwo_przy_braku_encji(ha_config):
+    """Kazda karta z encja (gauge, wykres) ma warunek widocznosci."""
+    lovelace = yaml.safe_load(
+        (ha_config.ha_dir / 'lovelace_v2.yaml').read_text(encoding='utf-8'))
+
+    def walk(node):
+        if isinstance(node, dict):
+            if node.get('type') in ('gauge', 'custom:apexcharts-card'):
+                assert node.get('visibility'), node.get('entity') or node.get('series')
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                walk(value)
+
+    walk(lovelace)
+
+
 def test_atrybuty_ceny(ha_config, payload):
     states = render_at(ha_config, payload, 2)
     attributes = states['sensor.tge_v2_aktualna_cena']['attributes']

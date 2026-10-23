@@ -97,16 +97,20 @@ template:
       #    "total" z JSON-a to cena z marginesem dostawy (taka, ktora realnie
       #    placisz).
       # ---------------------------------------------------------------------
+      #    Sensor z jednostka musi miec stan liczbowy - brak ceny zglaszamy
+      #    przez availability, nie przez stan 'unavailable'.
       - name: "{name_cena}"
         unique_id: {uid_cena}
         unit_of_measurement: "PLN/kWh"
         state_class: measurement
+        availability: >
+          {{%- set prices = state_attr('sensor.{eid_dzis}', 'fixing_i_prices') or [] -%}}
+          {{%- set p = prices | selectattr('hour', 'equalto', now().hour + 1) | list -%}}
+          {{{{- p | count > 0 and p[0].total is number -}}}}
         state: >
           {{%- set prices = state_attr('sensor.{eid_dzis}', 'fixing_i_prices') or [] -%}}
-          {{%- set cur = now().hour + 1 -%}}
-          {{%- set p = (prices | selectattr('hour', 'equalto', cur) | list) -%}}
-          {{%- set p = p[0] if p else none -%}}
-          {{{{- p.total if p is not none else 'unavailable' -}}}}
+          {{%- set p = prices | selectattr('hour', 'equalto', now().hour + 1) | list -%}}
+          {{{{- p[0].total if p else 0 -}}}}
         attributes:
           spot: >
             {{%- set prices = state_attr('sensor.{eid_dzis}', 'fixing_i_prices') or [] -%}}
@@ -138,12 +142,14 @@ template:
         unique_id: {uid_cena_jutro}
         unit_of_measurement: "PLN/kWh"
         state_class: measurement
+        availability: >
+          {{%- set prices = state_attr('sensor.{eid_jutro}', 'fixing_i_prices') or [] -%}}
+          {{%- set p = prices | selectattr('hour', 'equalto', now().hour + 1) | list -%}}
+          {{{{- p | count > 0 and p[0].total is number -}}}}
         state: >
           {{%- set prices = state_attr('sensor.{eid_jutro}', 'fixing_i_prices') or [] -%}}
-          {{%- set cur = now().hour + 1 -%}}
-          {{%- set p = (prices | selectattr('hour', 'equalto', cur) | list) -%}}
-          {{%- set p = p[0] if p else none -%}}
-          {{{{- p.total if p is not none else 'unavailable' -}}}}
+          {{%- set p = prices | selectattr('hour', 'equalto', now().hour + 1) | list -%}}
+          {{{{- p[0].total if p else 0 -}}}}
 
   - binary_sensor:
       # ---------------------------------------------------------------------

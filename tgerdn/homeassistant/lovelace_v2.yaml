@@ -81,7 +81,13 @@ views:
                   {%- endmacro %}
                   {% set entity_id = 'sensor.tge_v2_ceny_dzis' %}
                   {% set data_fetched = state_attr(entity_id, 'data_fetched') %}
-                  {% if data_fetched is true %}
+                  {% if state_attr(entity_id, 'day') is none %}
+                  <center>
+                    <ha-icon icon="mdi:alert-circle-outline"></ha-icon>
+                    <b>Encja {{ entity_id }} niedostępna</b><br>
+                    <small>Czekamy na dane z dodatku TGE RDN.</small>
+                  </center>
+                  {% elif data_fetched is true %}
                   <center>
                   <table border="1" cellspacing="0" cellpadding="10"
                   width="100%">
@@ -168,7 +174,13 @@ views:
                   {%- endmacro %}
                   {% set entity_id = 'sensor.tge_v2_ceny_jutro' %}
                   {% set data_fetched = state_attr(entity_id, 'data_fetched') %}
-                  {% if data_fetched is true %}
+                  {% if state_attr(entity_id, 'day') is none %}
+                  <center>
+                    <ha-icon icon="mdi:alert-circle-outline"></ha-icon>
+                    <b>Encja {{ entity_id }} niedostępna</b><br>
+                    <small>Czekamy na dane z dodatku TGE RDN.</small>
+                  </center>
+                  {% elif data_fetched is true %}
                   <center>
                   <table border="1" cellspacing="0" cellpadding="10"
                   width="100%">
@@ -223,10 +235,37 @@ views:
               red: 1.2
             needle: true
             max: 2
+            visibility:
+              - condition: state
+                entity: sensor.tge_v2_aktualna_cena
+                state_not:
+                  - unavailable
+                  - unknown
+          - type: markdown
+            text_only: true
+            content: >
+              <center><ha-icon icon="mdi:timer-sand"></ha-icon>
+              <b>Aktualna cena niedostępna</b><br>
+              <small>Czekamy na dane (sensor.tge_v2_aktualna_cena).</small></center>
+            visibility:
+              - condition: state
+                entity: sensor.tge_v2_aktualna_cena
+                state:
+                  - unavailable
+                  - unknown
           - type: markdown
             title: Plan ładowania
             content: >
-              {% set plan = state_attr('sensor.tge_v2_ceny_dzis', 'plan') or {} %}
+              {% set plan = state_attr('sensor.tge_v2_ceny_dzis', 'plan') %}
+              {% set window_ok = states('binary_sensor.tge_v2_najtansze_5h') in ['on', 'off'] %}
+              {% if plan is not mapping or not window_ok %}
+              <center><ha-icon icon="mdi:timer-sand"></ha-icon>
+              <b>Plan ładowania niedostępny</b><br>
+              <small>
+              {%- if plan is not mapping %} Brak planu w sensor.tge_v2_ceny_dzis.{% endif %}
+              {%- if not window_ok %} Encja binary_sensor.tge_v2_najtansze_5h niedostępna.{% endif %}
+              Czekamy na dane.</small></center>
+              {% else %}
               {% set periods = plan.get('periods', []) %}
               {% set charged = state_attr('binary_sensor.tge_v2_najtansze_5h', 'charged_hours') %}
               {% set missing = state_attr('binary_sensor.tge_v2_najtansze_5h', 'missing_hours') %}
@@ -247,18 +286,19 @@ views:
               </tr>
               <tr>
               <td>Najtańsza / najdroższa:</td>
-              <td>{{ '%.3f'|format(plan.get('cheapest_price', 0)) }} /
-              {{ '%.3f'|format(plan.get('dearest_price', 0)) }} PLN/kWh</td>
+              <td>{{ '%.3f'|format(plan.get('cheapest_price') | float(0)) }} /
+              {{ '%.3f'|format(plan.get('dearest_price') | float(0)) }} PLN/kWh</td>
               </tr>
               <tr>
               <td>Średnia doby:</td>
-              <td>{{ '%.3f'|format(plan.get('day_avg', 0)) }} PLN/kWh</td>
+              <td>{{ '%.3f'|format(plan.get('day_avg') | float(0)) }} PLN/kWh</td>
               </tr>
               <tr>
               <td>Oszczędność w oknie:</td>
-              <td>{{ '%.3f'|format(plan.get('saving', 0)) }} PLN/kWh</td>
+              <td>{{ '%.3f'|format(plan.get('saving') | float(0)) }} PLN/kWh</td>
               </tr>
               </table>
+              {% endif %}
             text_only: true
       - type: grid
         cards:
@@ -269,14 +309,58 @@ views:
             entity: sensor.shelly_em3_channel_a_current
             max: 25
             needle: false
+            visibility:
+              - condition: state
+                entity: sensor.shelly_em3_channel_a_current
+                state_not:
+                  - unavailable
+                  - unknown
           - type: gauge
             entity: sensor.shelly_em3_channel_b_current
             max: 25
             needle: false
+            visibility:
+              - condition: state
+                entity: sensor.shelly_em3_channel_b_current
+                state_not:
+                  - unavailable
+                  - unknown
           - type: gauge
             entity: sensor.shelly_em3_channel_c_current
             max: 25
             needle: false
+            visibility:
+              - condition: state
+                entity: sensor.shelly_em3_channel_c_current
+                state_not:
+                  - unavailable
+                  - unknown
+          - type: markdown
+            text_only: true
+            content: >
+              {% set ids = ['sensor.shelly_em3_channel_a_current',
+                            'sensor.shelly_em3_channel_b_current',
+                            'sensor.shelly_em3_channel_c_current'] %}
+              {% set ns = namespace(bad=[]) %}
+              {% for id in ids if states(id) in ['unavailable', 'unknown'] %}
+              {% set ns.bad = ns.bad + [id] %}
+              {% endfor %}
+              {% set bad = ns.bad %}
+              <center><ha-icon icon="mdi:lan-disconnect"></ha-icon>
+              <b>Pomiar prądu niedostępny</b><br>
+              <small>{{ bad | join(', ') }} - czekamy na dane.</small></center>
+            visibility:
+              - condition: or
+                conditions:
+                  - condition: state
+                    entity: sensor.shelly_em3_channel_a_current
+                    state: [unavailable, unknown]
+                  - condition: state
+                    entity: sensor.shelly_em3_channel_b_current
+                    state: [unavailable, unknown]
+                  - condition: state
+                    entity: sensor.shelly_em3_channel_c_current
+                    state: [unavailable, unknown]
     badges: []
   - title: Ceny Energii v2
     path: ceny-energii-v2
@@ -332,6 +416,25 @@ views:
                     new Date(p.dtime).getTime(),
                     Number(p.total_pln)
                   ]);
+            visibility:
+              - condition: state
+                entity: sensor.tge_v2_ceny_dzis
+                state_not:
+                  - unavailable
+                  - unknown
+          - type: markdown
+            text_only: true
+            content: >
+              <center><ha-icon icon="mdi:timer-sand"></ha-icon>
+              <b>Ceny na dziś niedostępne</b><br>
+              <small>sensor.tge_v2_ceny_dzis: {{ states('sensor.tge_v2_ceny_dzis') }}
+              - czekamy na dane z dodatku TGE RDN.</small></center>
+            visibility:
+              - condition: state
+                entity: sensor.tge_v2_ceny_dzis
+                state:
+                  - unavailable
+                  - unknown
       - type: grid
         cards:
           - type: custom:apexcharts-card
@@ -382,4 +485,23 @@ views:
                     new Date(p.dtime).getTime(),
                     Number(p.total_pln)
                   ]);
+            visibility:
+              - condition: state
+                entity: sensor.tge_v2_ceny_jutro
+                state_not:
+                  - unavailable
+                  - unknown
+          - type: markdown
+            text_only: true
+            content: >
+              <center><ha-icon icon="mdi:timer-sand"></ha-icon>
+              <b>Ceny na jutro jeszcze niedostępne</b><br>
+              <small>TGE publikuje je około 12:00 - czekamy na dane
+              (sensor.tge_v2_ceny_jutro: {{ states('sensor.tge_v2_ceny_jutro') }}).</small></center>
+            visibility:
+              - condition: state
+                entity: sensor.tge_v2_ceny_jutro
+                state:
+                  - unavailable
+                  - unknown
         column_span: 2
