@@ -5,6 +5,20 @@ i `io.hass.version` w `Dockerfile` (muszą być zgodne), a tutaj trafia
 opis zmian. Supervisor HA porównuje `version` przy aktualizacji dodatku —
 bez zmiany numeru HA nie pobierze nowej wersji.
 
+## 2.1.12
+
+- **Sensory cen z `availability` zamiast stanu `'unavailable'`.**
+  Po północy, zanim `tomorrow.json` dostanie nowe ceny, szablon
+  `sensor.tge_v2_aktualna_cena_jutro` zwracał tekst `unavailable`. Sensor
+  ma `unit_of_measurement`, więc HA oczekuje liczby i logował „Received
+  invalid sensor state: unavailable … expected a number”. Teraz brak ceny
+  zgłasza `availability:`, a `state:` zawsze jest liczbą. Ta sama zmiana
+  w `sensor.tge_v2_aktualna_cena`. Symulator uwzględnia `availability`.
+- **Widoki Lovelace odporne na brak encji.** Gauge'e, wykresy i karty
+  markdown mają warunki widoczności; gdy encja jest `unavailable`/`unknown`
+  albo nie istnieje, zamiast pustej lub błędnej karty pojawia się komunikat
+  „niedostępna — czekamy na dane”.
+
 ## 2.1.11
 
 - **Automatyzacja ladowania: `mode: queued` zamiast `single`.** O pelnej
