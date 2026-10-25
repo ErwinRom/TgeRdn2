@@ -5,6 +5,7 @@ __pycache__/
 *.egg-info/
 build/
 dist/
+.vscode/
 
 # Prywatne dane srodowiska (repo jest publiczne)
 .claude/local/
