@@ -71,7 +71,7 @@ Wklej w swoim Home Assistant (z katalogu `tgerdn/homeassistant/`):
 | Plik | Gdzie wkleić |
 |---|---|
 | `tgerdn_v2.yaml` | katalog `packages/` — encje + szablony (patrz niżej) |
-| `tgerdn_v2_automation.yaml` | `automations.yaml` (główny) — ładowanie auta + licznik |
+| `tgerdn_v2_automation.yaml` | `automations.yaml` (główny) — ładowanie auta + licznik + strażnik braku cen |
 | `lovelace_v2.yaml` | dashboard (nowy widok) |
 
 **Encje w katalogu `packages/`.** Jeśli używasz pakietów HA:
@@ -151,8 +151,22 @@ Szczegóły: [`tgerdn/homeassistant/README.md`](tgerdn/homeassistant/README.md).
 
 **Ceny na dobę `D` są publikowane przez TGE na stronie z datą `D-1`.**
 Dlatego pobieramy dwie strony: wczorajszą (dziś) i dzisiejszą (jutro).
-Ceny na jutro pojawiają się ok. 12:00 — do tego czasu `tomorrow.json`
-jest pusty, a karta „Jutro” pokazuje „Brak danych”.
+TGE publikuje godzinowe Fixing I od 10:30, a dodatek pobiera o 00:01 i 12:01 —
+do 12:01 `tomorrow.json` jest pusty, a karta „Jutro” pokazuje „Brak danych”.
+
+### Świeżość danych i brak cen
+
+* Dobre dane z dzisiaj **nie są kasowane** pustą odpowiedzią TGE. Po nieudanym
+  pobraniu dodatek ponawia próbę (po 1, 2, 5, 10, a potem co 15 minut).
+* HA bierze ceny z pliku, którego `day` to **dzisiejsza data**. Po północy,
+  zanim `today.json` się odświeży, jest to `tomorrow.json` z 12:01 (zawiera
+  dokładnie dzisiejsze ceny i plan).
+* Gdy żaden plik nie dotyczy dzisiaj, `sensor.tge_v2_aktualna_cena` jest
+  `unavailable`, a automatyzacja **nie rusza przełącznika**. Dopiero po 2 godzinach
+  braku cen wyłącza go `tge_v2_charging_watchdog`.
+* Decyzja o przełączeniu zapada 10 s po pełnej godzinie (`mode: restart` +
+  `delay`), gdy cena, okno i licznik już się ustaliły. Każde przełączenie ma
+  wpis w Dzienniku z powodem.
 
 ### Konwencja godzin
 
@@ -280,8 +294,8 @@ więc **stare szablony i karty działają bez zmian**. Nowe pola to `margin`
 
 ## Ograniczenia (świadome)
 
-* **Ceny na jutro** pojawiają się dopiero ok. 12:00 — do tego czasu
-  `tomorrow.json` jest pusty, a karta „Jutro” pokazuje „Brak danych”.
+* **Ceny na jutro** pojawiają się po pobraniu o 12:01 (TGE publikuje od 10:30) —
+  do tego czasu `tomorrow.json` jest pusty, a karta „Jutro” pokazuje „Brak danych”.
 * **Okno na jutro** (`binary_sensor.tge_v2_najtansze_5h_jutro`) nie ma odbudowy —
   jutro można planować dokładnie.
 * **HA w trakcie okna** = przełącznik zostaje włączony (relé fizyczne) →

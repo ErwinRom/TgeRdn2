@@ -5,7 +5,7 @@
 
 ## TL;DR
 
-- Dodatek **v2.1.9** pobiera ceny z tge.pl i zapisuje pliki JSON.
+- Dodatek (wersja w `config.yaml`) pobiera ceny z tge.pl i zapisuje pliki JSON.
 - W HA działa **wyłącznie wariant v2** (encje `tge_v2_*`). Dodatek v1
   i cała jego konfiguracja są usunięte.
 - Historia encji v1 przepadła. Encje `tge_v2_*` mają historię od 2026-10-21.
@@ -15,7 +15,7 @@
 | Plik | Zawartość |
 |---|---|
 | `/config/packages/tgerdn_v2.yaml` | encje v2 (z `tgerdn/homeassistant/tgerdn_v2.yaml`) |
-| `/config/automations.yaml` | `tge_v2_charging_car`, `tge_v2_charging_counter` (z `tgerdn_v2_automation.yaml`) |
+| `/config/automations.yaml` | `tge_v2_charging_car`, `tge_v2_charging_counter`, `tge_v2_charging_watchdog` (z `tgerdn_v2_automation.yaml`) |
 | `/config/ui-lovelace.yaml` | 2 widoki z `lovelace_v2.yaml` |
 
 Dodatek: `TGE RDN` (v2) z repo `ErwinRom/TgeRdn2` → `/config/tgerdn/today.json`,
@@ -71,19 +71,33 @@ input_number.tge_v2_ladowane_godziny      licznik godzin ładowania
 - **Sensor z `unit_of_measurement` musi mieć stan liczbowy.** Tekst
   `unavailable` ze `state:` daje „Received invalid sensor state … expected
   a number”. Brak danych zgłaszać przez `availability:`.
+- **Brak danych nie jest powodem do wyłączenia.** Gałąź OFF z warunkiem
+  „cena `unknown`/`unavailable` → wyłącz” wyłączała gniazdko przy każdym
+  restarcie HA i błędzie odczytu pliku. Bez ceny automatyzacja nic nie robi,
+  a po 2 h bez cen wyłącza `tge_v2_charging_watchdog`.
+- **Dane z innej doby.** `today.json` po północy jest przez chwilę (a przy
+  nieudanym pobraniu przez godziny) z wczoraj. Szablony wybierają plik po
+  atrybucie `day`, a nie po nazwie.
+- **Wyścig o pełnej godzinie.** Cena, okno i licznik zmieniają się w tej samej
+  sekundzie, a automatyzacja licznika czyta stan przełącznika. Kolejności
+  zdarzeń nie da się założyć, więc automatyzacja ładowania ma `mode: restart`
+  i `delay` (decyzja po ustaniu zdarzeń). `mode: queued` tego nie rozwiązywał:
+  każde zdarzenie nadal dawało własne uruchomienie na stanie z tej chwili.
+  Pilnuje tego `tests/test_ha_race.py`.
 - **`entity_id` helpera `input_number`** = `input_number.<slug klucza>` —
   slug musi się zgadzać z tym, o czym mówią szablony, inaczej `states()`
   zwraca `unknown` i `| float(0)` zamienia to w zero (błąd bez śladu).
 
 Te reguły są zakodowane w testach `tests/test_ha_config_shape.py`,
 `tests/test_ha_config_keys.py`, `tests/test_ha_references.py`,
-`tests/test_ha_automation.py`.
+`tests/test_ha_automation.py`, `tests/test_ha_freshness.py`,
+`tests/test_ha_race.py`.
 
 ## Stan repo
 
-- Wersja **2.1.9** spójna w `config.yaml`, `Dockerfile`, `CHANGELOG.md`
+- Wersja w `config.yaml` jest spójna z `Dockerfile` i `CHANGELOG.md`
   (pilnuje tego `tests/test_manifest.py`).
-- **106 testów** przechodzi (`python3 -m pytest tests/ -q`).
+- Testy przechodzą (`python3 -m pytest tests/ -q`).
 - W repo jest tylko wariant v2: `tgerdn_v2.yaml` (generowany przez
   `tools/generate_ha_config.py`), `tgerdn_v2_automation.yaml`,
   `lovelace_v2.yaml`. Kanoniczne pliki usunięto w 2.1.7. Symulator

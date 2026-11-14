@@ -25,13 +25,15 @@ HEADER = """# ==================================================================
 """
 
 COMMAND_LINE = """
+# Odczyt co minute (plik jest maly): po polnocy HA szybko podejmuje nowy plik
+# z cenami, a szablony i tak wybieraja zrodlo po dacie (patrz nizej).
 command_line:
   - sensor:
       name: "{name_dzis}"
       unique_id: {uid_dzis}
       command: "cat /config/tgerdn/today.json"
       value_template: "{{{{ value_json.data_points if value_json.data_fetched else 'unknown' }}}}"
-      scan_interval: 300
+      scan_interval: 60
       json_attributes:
         - fixing_i_prices
         - prices
@@ -50,7 +52,7 @@ command_line:
       unique_id: {uid_jutro}
       command: "cat /config/tgerdn/tomorrow.json"
       value_template: "{{{{ value_json.data_points if value_json.data_fetched else 'unknown' }}}}"
-      scan_interval: 300
+      scan_interval: 60
       json_attributes:
         - fixing_i_prices
         - prices
@@ -69,6 +71,23 @@ INPUT_NUMBER = """
 input_number:
 {input_number_body}
 """
+
+# Wspolny poczatek szablonow: wybor zrodla cen PO DACIE.
+#
+# Plik today.json odswiezany jest po polnocy z opoznieniem (zapis o 00:01 plus
+# odczyt przez HA), a gdy pobranie sie nie uda - nawet przez wiele godzin.
+# Wczoraj o 12:01 dodatek zapisal tomorrow.json, ktory po polnocy zawiera
+# DOKLADNIE dzisiejsze ceny i plan. Dlatego dane bierzemy z pliku, ktorego
+# `day` jest dzisiejsza data; gdy zaden nie jest - brak danych (puste listy).
+# Placeholdery: @DZIS@ / @JUTRO@ = nazwy encji (bez 'sensor.').
+PRELUDE = (
+    "{%- set today = now().strftime('%Y-%m-%d') -%}\n"
+    "{%- set src = 'sensor.@DZIS@' if state_attr('sensor.@DZIS@', 'day') == today"
+    " else 'sensor.@JUTRO@' -%}\n"
+    "{%- set fresh = state_attr(src, 'day') == today -%}\n"
+    "{%- set prices = (state_attr(src, 'fixing_i_prices') or []) if fresh else [] -%}\n"
+    "{%- set plan = (state_attr(src, 'plan') or {}) if fresh else {} -%}"
+)
 
 TEMPLATE = """
 template:
@@ -96,6 +115,10 @@ template:
       # 2. Aktualna cena godziny + statystyki dnia.
       #    "total" z JSON-a to cena z marginesem dostawy (taka, ktora realnie
       #    placisz).
+      #
+      #    Zrodlo cen wybierane jest po dacie (patrz poczatek kazdego szablonu).
+      #    Brak aktualnych cen to NIE jest powod do wylaczenia ladowania -
+      #    automatyzacja przeczekuje taki stan bez ruszania przelacznika.
       # ---------------------------------------------------------------------
       #    Sensor z jednostka musi miec stan liczbowy - brak ceny zglaszamy
       #    przez availability, nie przez stan 'unavailable'.
@@ -104,36 +127,41 @@ template:
         unit_of_measurement: "PLN/kWh"
         state_class: measurement
         availability: >
-          {{%- set prices = state_attr('sensor.{eid_dzis}', 'fixing_i_prices') or [] -%}}
+{prelude10}
           {{%- set p = prices | selectattr('hour', 'equalto', now().hour + 1) | list -%}}
           {{{{- p | count > 0 and p[0].total is number -}}}}
         state: >
-          {{%- set prices = state_attr('sensor.{eid_dzis}', 'fixing_i_prices') or [] -%}}
+{prelude10}
           {{%- set p = prices | selectattr('hour', 'equalto', now().hour + 1) | list -%}}
           {{{{- p[0].total if p else 0 -}}}}
         attributes:
           spot: >
-            {{%- set prices = state_attr('sensor.{eid_dzis}', 'fixing_i_prices') or [] -%}}
+{prelude12}
             {{%- set cur = now().hour + 1 -%}}
             {{%- set p = (prices | selectattr('hour', 'equalto', cur) | list) -%}}
             {{%- set p = p[0] if p else none -%}}
             {{{{- p.fixing_i_price_pln_kwh if p is not none else 'unavailable' -}}}}
           margin: >
-            {{%- set prices = state_attr('sensor.{eid_dzis}', 'fixing_i_prices') or [] -%}}
+{prelude12}
             {{%- set cur = now().hour + 1 -%}}
             {{%- set p = (prices | selectattr('hour', 'equalto', cur) | list) -%}}
             {{%- set p = p[0] if p else none -%}}
             {{{{- p.margin if p is not none else 'unavailable' -}}}}
           day: >
-            {{{{- state_attr('sensor.{eid_dzis}', 'day') or 'unknown' -}}}}
+{prelude12}
+            {{{{- state_attr(src, 'day') or 'unknown' -}}}}
           cheapest_price: >
-            {{{{- (state_attr('sensor.{eid_dzis}', 'plan') or {{}}).get('cheapest_price', 'unavailable') -}}}}
+{prelude12}
+            {{{{- plan.get('cheapest_price', 'unavailable') -}}}}
           dearest_price: >
-            {{{{- (state_attr('sensor.{eid_dzis}', 'plan') or {{}}).get('dearest_price', 'unavailable') -}}}}
+{prelude12}
+            {{{{- plan.get('dearest_price', 'unavailable') -}}}}
           day_avg: >
-            {{{{- (state_attr('sensor.{eid_dzis}', 'plan') or {{}}).get('day_avg', 'unavailable') -}}}}
+{prelude12}
+            {{{{- plan.get('day_avg', 'unavailable') -}}}}
           plan_hours_count: >
-            {{{{- (state_attr('sensor.{eid_dzis}', 'plan') or {{}}).get('count', 0) -}}}}
+{prelude12}
+            {{{{- plan.get('count', 0) -}}}}
 
       # ---------------------------------------------------------------------
       # 3. Cena jutra w biezacej godzinie (do porownania z dzisiejsza).
@@ -161,14 +189,16 @@ template:
       #    Odbudowa: jesli HA byl wylaczony w czescci okna, godziny te
       #    przepadaja. Wtedy doklejamy najtansze godziny, ktore jeszcze
       #    zostaly w ciagu dnia - dzieki temu dobowy limit N jest dotrzymany.
+      #
+      #    Gdy nie ma aktualnych cen, okno jest `off`, ale o braku danych
+      #    decyduje sensor ceny (availability) - patrz automatyzacja.
       # ---------------------------------------------------------------------
       - name: "{name_okno}"
         unique_id: {uid_okno}
         device_class: power
         state: >
+{prelude10}
           {{%- set rules = state_attr('sensor.{eid_reguly}', 'charging_hours') | int(5) -%}}
-          {{%- set prices = state_attr('sensor.{eid_dzis}', 'fixing_i_prices') or [] -%}}
-          {{%- set plan = state_attr('sensor.{eid_dzis}', 'plan') or {{}} -%}}
           {{%- set plan_hours = plan.get('hours', []) if plan is mapping else [] -%}}
           {{%- set cur = now().hour + 1 -%}}
           {{%- set future = prices | selectattr('hour', 'ge', cur) | list | sort(attribute='total') -%}}
@@ -182,8 +212,7 @@ template:
           charged_hours: >
             {{{{- states('input_number.{eid_licznik}') | float(0) | round(2) -}}}}
           window_hours: >
-            {{%- set prices = state_attr('sensor.{eid_dzis}', 'fixing_i_prices') or [] -%}}
-            {{%- set plan = state_attr('sensor.{eid_dzis}', 'plan') or {{}} -%}}
+{prelude12}
             {{%- set plan_hours = plan.get('hours', []) if plan is mapping else [] -%}}
             {{%- set cur = now().hour + 1 -%}}
             {{%- set future = prices | selectattr('hour', 'ge', cur) | list | sort(attribute='total') -%}}
@@ -193,8 +222,7 @@ template:
             {{%- set extras = (future | rejectattr('hour', 'in', plan_hours) | list)[:missing] | map(attribute='hour') | list -%}}
             {{{{- (plan_hours + extras) | join(',') -}}}}
           missing_hours: >
-            {{%- set prices = state_attr('sensor.{eid_dzis}', 'fixing_i_prices') or [] -%}}
-            {{%- set plan = state_attr('sensor.{eid_dzis}', 'plan') or {{}} -%}}
+{prelude12}
             {{%- set plan_hours = plan.get('hours', []) if plan is mapping else [] -%}}
             {{%- set cur = now().hour + 1 -%}}
             {{%- set future = prices | selectattr('hour', 'ge', cur) | list | sort(attribute='total') -%}}
@@ -202,8 +230,7 @@ template:
             {{%- set charged = states('input_number.{eid_licznik}') | float(0) | round(0) | int -%}}
             {{{{- [state_attr('sensor.{eid_reguly}', 'charging_hours') | int(5) - charged - (plan_future | length), 0] | max -}}}}
           window_count: >
-            {{%- set prices = state_attr('sensor.{eid_dzis}', 'fixing_i_prices') or [] -%}}
-            {{%- set plan = state_attr('sensor.{eid_dzis}', 'plan') or {{}} -%}}
+{prelude12}
             {{%- set plan_hours = plan.get('hours', []) if plan is mapping else [] -%}}
             {{%- set cur = now().hour + 1 -%}}
             {{%- set future = prices | selectattr('hour', 'ge', cur) | list | sort(attribute='total') -%}}
@@ -262,6 +289,13 @@ IN_NUMBER_CONF = """    name: TGE v2 Ladowane godziny
     mode: box
     icon: mdi:timer-sand"""
 
+
+def _indent(text, spaces):
+    """Wcina kazdy wiersz (takze pierwszy) - placeholder stoi na poczatku wiersza."""
+    pad = ' ' * spaces
+    return '\n'.join(pad + line for line in text.split('\n'))
+
+
 def build(variant):
     v = VARIANTS[variant]
     fields = {}
@@ -271,6 +305,12 @@ def build(variant):
         fields[f'uid_{key}'] = value
     for key, value in v['eids'].items():
         fields[f'eid_{key}'] = value
+
+    prelude = (PRELUDE
+               .replace('@DZIS@', v['eids']['dzis'])
+               .replace('@JUTRO@', v['eids']['jutro']))
+    fields['prelude10'] = _indent(prelude, 10)
+    fields['prelude12'] = _indent(prelude, 12)
 
     body = f"  {v['eids']['licznik']}:\n" + IN_NUMBER_CONF
 

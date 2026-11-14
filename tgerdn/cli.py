@@ -29,6 +29,14 @@ FILES = {
     'tomorrow': 'tomorrow.json',
 }
 
+# TGE publikuje godzinowe Fixing I na jutro od 10:30. Po tej porze brak
+# danych na jutro to awaria (do ponowienia), a nie normalny stan.
+TOMORROW_PUBLISHED = time(10, 45)
+
+# Odstepy ponawiania po porazce (sekundy). Ostatni jest powtarzany az do
+# nastepnego planowego pobrania.
+RETRY_DELAYS = (60, 120, 300, 600, 900)
+
 
 def _setup_logging(verbose: bool) -> None:
     logging.basicConfig(
@@ -113,6 +121,12 @@ def _fetch_all(settings: Settings, days: list[str] | None) -> int:
         previous = read_payload(path)
 
         if not day_prices.hours:
+            if previous and previous.get('day') == day_str and previous.get('data_fetched'):
+                # Odpowiedz 200 bez tabeli (strona techniczna, chwilowa awaria
+                # TGE) nie moze skasowac dobrych danych tej samej doby - HA
+                # zostalby bez cen i planu do kolejnego pobrania.
+                logger.warning('TGE nie zwrocilo cen na %s - zostawiam poprzednie dane', day_str)
+                continue
             # TGE nie opublikowal jeszcze tej doby - zapisujemy pusty payload,
             # zeby karta w HA pokazala "Brak danych" zamiast cudzych danych.
             payload = empty_payload(day_str, settings.tariff, label=label, source=url)
@@ -169,6 +183,36 @@ def _next_run(now: datetime, times: list[time]) -> datetime:
     return min(candidates)
 
 
+def _missing_labels(output_dir: Path, now: datetime) -> list[str]:
+    """Etykiety dob, ktore powinny miec swieze dane, a ich nie maja.
+
+    Plik jest "swiezy", gdy ma dane (`data_fetched`) i dotyczy oczekiwanej
+    doby. Jutro jest oczekiwane dopiero po opublikowaniu cen przez TGE.
+    """
+    today = now.date()
+    expected = [('today', today)]
+    if now.time() >= TOMORROW_PUBLISHED:
+        expected.append(('tomorrow', today + timedelta(days=1)))
+
+    missing = []
+    for label, day in expected:
+        payload = read_payload(output_dir / FILES[label])
+        if (not payload or not payload.get('data_fetched')
+                or payload.get('day') != day.isoformat()):
+            missing.append(label)
+    return missing
+
+
+def _retry_time(now: datetime, scheduled: datetime, attempt: int) -> datetime | None:
+    """Kiedy ponowic pobranie po porazce.
+
+    Zwraca None, gdy planowe pobranie nastapi wczesniej niz kolejna proba.
+    """
+    delay = RETRY_DELAYS[min(attempt, len(RETRY_DELAYS) - 1)]
+    retry_at = now + timedelta(seconds=delay)
+    return retry_at if retry_at < scheduled else None
+
+
 def cmd_serve(args: argparse.Namespace) -> int:
     """Tryb dodatku HA - pobiera cyklicznie i czeka do kolejnej godziny."""
     settings = _settings_from_args(args)
@@ -188,11 +232,34 @@ def cmd_serve(args: argparse.Namespace) -> int:
     logger.info('tgerdn serve: katalog %s, pobieranie o %s',
                 settings.output_dir, ', '.join(t.strftime('%H:%M') for t in times))
 
-    while not stop.is_set():
-        _fetch_all(settings, getattr(args, 'day', None))
+    requested = getattr(args, 'day', None)
+    pending = requested
+    attempt = 0
 
-        target = _next_run(datetime.now(), times)
-        logger.info('Nastepne pobieranie: %s', target.strftime('%Y-%m-%d %H:%M'))
+    while not stop.is_set():
+        _fetch_all(settings, pending)
+
+        now = datetime.now()
+        scheduled = _next_run(now, times)
+        missing = _missing_labels(settings.output_dir, now)
+        if requested:
+            missing = [label for label in missing if label in requested]
+
+        target = scheduled
+        pending = requested
+        if missing:
+            retry_at = _retry_time(now, scheduled, attempt)
+            attempt += 1
+            if retry_at is not None:
+                target = retry_at
+                pending = missing
+                logger.warning('Brak aktualnych danych (%s) - ponawiam o %s',
+                               ', '.join(missing), retry_at.strftime('%H:%M:%S'))
+            else:
+                attempt = 0
+        else:
+            attempt = 0
+        logger.info('Nastepne pobieranie: %s', target.strftime('%Y-%m-%d %H:%M:%S'))
 
         while not stop.is_set():
             remaining = (target - datetime.now()).total_seconds()
@@ -290,11 +357,21 @@ def cmd_doctor(args: argparse.Namespace) -> int:
           f'{settings.tariff.charge_below}/{settings.tariff.stop_above}')
 
     problems = 0
+    today = date.today()
+    expected_day = {
+        'today': today.isoformat(),
+        'tomorrow': (today + timedelta(days=1)).isoformat(),
+    }
     for label, name in FILES.items():
         path = output_dir / name
         payload = read_payload(path)
         if payload is None:
             print(f'  {name:<14} BRAK')
+            problems += 1
+            continue
+        if payload.get('day') != expected_day[label]:
+            print(f'  {name:<14} NIEAKTUALNE  day={payload.get("day")}, '
+                  f'oczekiwano {expected_day[label]}')
             problems += 1
             continue
         fetched = payload.get('fetched_at')

@@ -40,10 +40,9 @@ def test_pliki_ha_sa_poprawnym_yaml(ha_config):
 
 
 def test_automatyzacje_sa_zdefiniowane(ha_config):
-    assert len(ha_config.automation) == 2
     ids = {item['id'] for item in ha_config.automation}
-    assert 'tge_v2_charging_car' in ids
-    assert 'tge_v2_charging_counter' in ids
+    assert ids == {'tge_v2_charging_car', 'tge_v2_charging_counter',
+                   'tge_v2_charging_watchdog'}
 
 
 def test_encje_sa_zdefiniowane(ha_config):
@@ -282,15 +281,24 @@ def test_niedostepna_cena_nie_wywraca_szablonu(ha_config, payload):
     assert ha_config.render_condition(ha_config.turn_off_template, states, moment) is False
 
 
-def test_brak_danych_wylacza_ladowanie_poza_oknem(ha_config, payload):
-    """Cena nieznana poza oknem = wylacz ladowanie (nie palimy prad za nic)."""
+def test_brak_danych_nie_wylacza_ladowania(ha_config, payload):
+    """Cena nieznana = przelacznik zostaje (chwilowy brak danych, np. restart HA,
+    nie moze przerywac ladowania). Wylaczy go dopiero straznik po 2 h."""
     plan = payload['plan']['hours']
     hour = next(h for h in range(1, 25) if h not in plan)
     moment = DAY.replace(hour=hour - 1)
     states = build_states(payload, payload, charged=0, switch_on=True)
     ha_config.render_entities(states, moment)
     states['sensor.tge_v2_aktualna_cena']['state'] = 'unavailable'
-    assert ha_config.render_condition(ha_config.turn_off_template, states, moment) is True
+    assert ha_config.render_condition(ha_config.turn_off_template, states, moment) is False
+    assert ha_config.render_condition(ha_config.guard_template, states, moment) is False
+
+
+def test_warunek_danych_przepuszcza_znana_cene(ha_config, payload):
+    moment = DAY.replace(hour=10)
+    states = build_states(payload, payload, charged=0, switch_on=True)
+    ha_config.render_entities(states, moment)
+    assert ha_config.render_condition(ha_config.guard_template, states, moment) is True
 
 
 def test_brak_danych_nie_wylacza_ladowania_w_oknie(ha_config, payload):

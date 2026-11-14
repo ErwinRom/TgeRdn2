@@ -24,6 +24,8 @@ SWITCH = 'switch.0xb40ecfd05e500000'
 CONFIG_FILE = 'tgerdn_v2.yaml'
 AUTOMATION_FILE = 'tgerdn_v2_automation.yaml'
 HOURS_IN_DAY = 24
+# Po tylu godzinach bez cen automatyzacja `tge_v2_charging_watchdog` wylacza ladowanie.
+WATCHDOG_HOURS = 2
 
 
 def find_ha_dir(explicit: Path | None = None) -> Path | None:
@@ -75,6 +77,12 @@ class FakeClock:
 
     def __call__(self) -> 'FakeClock':
         return self
+
+    def __getattr__(self, name: str) -> Any:
+        # strftime(), date(), year... - jak na prawdziwym datetime w HA.
+        if name.startswith('_'):
+            raise AttributeError(name)
+        return getattr(self._moment, name)
 
     def __add__(self, delta: timedelta) -> 'FakeClock':
         return FakeClock(self._moment + delta)
@@ -186,9 +194,15 @@ class HomeAssistantConfig:
             (self.ha_dir / AUTOMATION_FILE).read_text(encoding='utf-8')
         )
 
-        action = self.automation[0]['actions'][0]
-        self.turn_on_template = action['choose'][0]['conditions'][0]['value_template']
-        self.turn_off_template = action['choose'][1]['conditions'][0]['value_template']
+        car = next(item for item in self.automation if item['id'] == 'tge_v2_charging_car')
+        choose = next(action for action in car['actions'] if 'choose' in action)
+        self.turn_on_template = choose['choose'][0]['conditions'][0]['value_template']
+        self.turn_off_template = choose['choose'][1]['conditions'][0]['value_template']
+        # Warunek "dane sa" (krok `condition` przed `choose`): bez cen automatyzacja
+        # nie rusza przelacznika.
+        guard = next((action for action in car['actions']
+                      if action.get('condition') == 'template'), None)
+        self.guard_template = guard['value_template'] if guard else None
 
     def entities(self) -> list[tuple[str, str, Any, dict]]:
         """Zwraca (rodzaj, nazwa, szablon stanu, atrybuty) wszystkich encji."""
@@ -290,6 +304,7 @@ def simulate_day(
     """
     day = day or date.fromisoformat(payload_today.get('day', '2026-01-01'))
     switch_on = False
+    hours_without_data = 0
     charged_hours: list[int] = []
     windows: set[tuple[int, ...]] = set()
 
@@ -313,6 +328,19 @@ def simulate_day(
             if switch_on:
                 charged_hours.append(hour)
             continue
+
+        has_data = (config.guard_template is None
+                    or config.render_condition(config.guard_template, states, moment))
+        if not has_data:
+            # Brak cen: stan przelacznika zostaje, a po WATCHDOG_HOURS godzinach
+            # bez danych ladowanie jest wylaczane.
+            hours_without_data += 1
+            if hours_without_data >= WATCHDOG_HOURS:
+                switch_on = False
+            if switch_on:
+                charged_hours.append(hour)
+            continue
+        hours_without_data = 0
 
         want_on = config.render_condition(config.turn_on_template, states, moment)
         want_off = config.render_condition(config.turn_off_template, states, moment)

@@ -6,7 +6,7 @@ Trzy pliki do wklejenia, w kolejności:
 | Plik | Co wkleić | Gdzie |
 |---|---|---|
 | `tgerdn_v2.yaml` | encje `command_line`, `input_number`, szablony | katalog `packages/` (patrz niżej) |
-| `tgerdn_v2_automation.yaml` | ładowanie auta + licznik godzin | `automations.yaml` (główny) |
+| `tgerdn_v2_automation.yaml` | ładowanie auta + licznik godzin + strażnik braku cen | `automations.yaml` (główny) |
 | `lovelace_v2.yaml` | karty | dashboard (widok) |
 
 `tgerdn_v2.yaml` jest generowany przez `tools/generate_ha_config.py` —
@@ -73,16 +73,39 @@ szablony czytają z nich ceny i okno ładowania.
 * **ON**: jesteśmy w oknie najtańszych godzin **lub** cena spadła poniżej
   progu `charge_below` (histereza),
 * **OFF**: wyszliśmy z okna **i** cena jest wysoka (powyżej `stop_above`),
-* gdy cena jest nieznana → poza oknem ładowanie jest **wyłączane** (nie palimy
-  prądu w ciemno), wewnątrz okna zostaje włączone.
+* gdy cena jest nieznana (`unknown`/`unavailable`) → **nic nie robi**,
+  przełącznik zostaje, jaki jest. Chwilowy brak danych (restart HA, błąd
+  odczytu pliku) nie przerywa ładowania,
+* decyzja zapada **10 s po wyzwalaczu** (`mode: restart` + `delay`): o pełnej
+  godzinie cena, okno i licznik zmieniają się w tej samej sekundzie, a kolejność
+  nie jest gwarantowana,
+* każde włączenie i wyłączenie zostawia wpis w Dzienniku („Ładowanie auta
+  (TGE)”) z powodem: stan okna, cena, próg, wyzwalacz.
+
+**`tge_v2_charging_watchdog`** — gdy `sensor.tge_v2_aktualna_cena` jest
+`unavailable` nieprzerwanie przez 2 godziny, wyłącza przełącznik.
 
 **`tge_v2_charging_counter`** — co godzinę zwiększa licznik, gdy przełącznik jest
 włączony; o 00:00 zeruje go. Licznik służy do odbudowy okna po awarii.
 
-### Co zmienić w automatyzacji
+### Skąd HA bierze ceny
+
+Szablony wybierają plik po dacie: `sensor.tge_v2_ceny_dzis`, jeśli jego `day` to
+dzisiaj, w przeciwnym razie `sensor.tge_v2_ceny_jutro`, jeśli jego `day` to
+dzisiaj (tak jest po północy, zanim `today.json` się odświeży), inaczej brak
+danych. Pliki odczytywane są co 60 s.
+
+Porównanie dat wymaga, żeby **strefa czasowa dodatku** (opcja `timezone`,
+domyślnie `Europe/Warsaw`) była taka sama jak strefa HA. Przy rozjeździe cena
+będzie `unavailable` wokół północy, a po 2 godzinach strażnik wyłączy ładowanie.
+
+### Co zmienić w automatyzacjach
 
 `switch.0xb40ecfd05e500000` to **Twój** przełącznik ładowania — podmień
-entity_id w obu automatyzacjach.
+entity_id we wszystkich trzech automatyzacjach (w tym w `logbook.log`).
+
+Po wklejeniu zmian w `tgerdn_v2.yaml` (`command_line`) **zrestartuj HA**;
+same automatyzacje wystarczy przeładować.
 
 ---
 
@@ -151,8 +174,13 @@ Sprzątanie konfiguracji v1 krok po kroku: [`MIGRACJA.md`](../../MIGRACJA.md).
 
 ## 7. Troubleshooting
 
-**Karta „Jutro” pokazuje „Brak danych”** — normalne przed 12:00; TGE
-publikuje ceny na jutro około południa.
+**Karta „Jutro” pokazuje „Brak danych”** — normalne przed 12:01: TGE publikuje
+godzinowe Fixing I od 10:30, a dodatek pobiera ceny na jutro o 12:01 (po
+porażce ponawia). Jeśli po 12:05 nadal brak danych, sprawdź log dodatku
+i `python3 -m tgerdn doctor`.
+
+**Gniazdko nie reaguje o pełnej godzinie** — to normalne opóźnienie 10 s.
+Powód każdego przełączenia jest w Dzienniku (wpis „Ładowanie auta (TGE)”).
 
 **`binary_sensor` ciągle `off`** — brakuje atrybutu `fixing_i_prices` albo
 `plan` w `json_attributes` sensora `command_line`. Sprawdź:

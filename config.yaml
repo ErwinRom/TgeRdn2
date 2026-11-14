@@ -1,15 +1,16 @@
 name: TGE RDN
-version: "2.1.12"
+version: "2.1.13"
 slug: tgerdn
 description: >-
   Pobiera ceny energii Fixing I z giełdy TGE, liczy plan ładowania auta
   (5 najtańszych godzin doby) i zapisuje pliki JSON dla Home Assistant.
 url: https://github.com/ErwinRom/TgeRdn2
 changelog: >
-  Bez zmian w dzialaniu dodatku. Sensory cen z availability (koniec bledu
-  "expected a number" po polnocy) - wklej ponownie tgerdn_v2.yaml. Widoki
-  Lovelace pokazuja komunikat "czekamy na dane" przy braku encji - wklej
-  ponownie lovelace_v2.yaml.
+  Dodatek: pusta odpowiedz TGE nie kasuje juz dobrych danych z dzisiaj, a po
+  porazce pobranie jest ponawiane (1, 2, 5, 10, 15 min). HA: wklej ponownie
+  tgerdn_v2.yaml i tgerdn_v2_automation.yaml - ceny wybierane po dacie, brak
+  cen nie wylacza ladowania (strazniczka wylacza po 2 h), decyzja zapada 10 s
+  po pelnej godzinie, wpisy w Dzienniku z powodem. Po wklejeniu zrestartuj HA.
 startup: application
 boot: auto
 init: false

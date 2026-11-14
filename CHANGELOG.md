@@ -5,6 +5,65 @@ i `io.hass.version` w `Dockerfile` (muszą być zgodne), a tutaj trafia
 opis zmian. Supervisor HA porównuje `version` przy aktualizacji dodatku —
 bez zmiany numeru HA nie pobierze nowej wersji.
 
+## 2.1.13
+
+Zmiany z przeglądu logiki sterowania. Przegląd oparto na modelu o pełnej
+godzinie, który uruchamia prawdziwe szablony z repo i losowo przeplata
+zdarzenia z tej samej sekundy (przeliczenie okna, ceny, licznika,
+uruchomienia automatyzacji), oraz na testach pobierania.
+
+- **Pusta odpowiedź TGE kasowała dobre dane z dzisiaj.** Odpowiedź 200 OK
+  bez tabeli Fixing I (strona techniczna, chwilowa awaria TGE) nadpisywała
+  `today.json` pustym plikiem z `plan: None`. HA zostawał bez cen i planu aż
+  do następnego pobrania (do 12 h). Teraz dobre dane tej samej doby zostają;
+  pusty plik zapisujemy tylko wtedy, gdy poprzedni dotyczy innej doby.
+- **Pobranie jest ponawiane po porażce.** Dotąd po nieudanym pobraniu
+  o 00:01 dodatek czekał do 12:01, a przez ten czas HA liczył wczorajszymi
+  cenami. Teraz brak świeżych danych (dziś zawsze, jutro po 10:45, bo TGE
+  publikuje godzinowe Fixing I od 10:30) wywołuje ponowienie po 1, 2, 5, 10,
+  a potem co 15 minut, do następnego planowego pobrania. `doctor` zgłasza
+  nieaktualne pliki (`NIEAKTUALNE`).
+- **HA wybiera źródło cen po dacie.** Nic nie sprawdzało atrybutu `day`: po
+  północy przez kilka minut (zapis o 00:01 plus odczyt co 5 min), a przy
+  nieudanym pobraniu nawet przez godziny, decyzje zapadały na wczorajszej
+  cenie i wczorajszym planie. Teraz szablony biorą dane z pliku, którego `day`
+  to dzisiejsza data. Po północy jest to `tomorrow.json` z 12:01, który
+  zawiera dokładnie dzisiejsze ceny i plan. Gdy żaden plik nie dotyczy
+  dzisiaj, `sensor.tge_v2_aktualna_cena` jest `unavailable`. Odczyt plików
+  `command_line` co 60 s zamiast co 300 s.
+- **Brak cen nie wyłącza już ładowania.** Gałąź OFF traktowała `unknown`
+  i `unavailable` jako powód do wyłączenia. Każde chwilowe zniknięcie danych
+  (restart HA, przeładowanie szablonów, błąd odczytu pliku) wyłączało gniazdko
+  w środku bloku, a po powrocie danych włączało je ponownie. Teraz bez ceny
+  automatyzacja nic nie robi, a nowa automatyzacja `tge_v2_charging_watchdog`
+  wyłącza ładowanie dopiero po 2 godzinach nieprzerwanego braku cen.
+- **Decyzja zapada po ustaniu zdarzeń: `mode: restart` + `delay: 10 s`.**
+  O pełnej godzinie w tej samej sekundzie zmieniają się cena, okno i licznik,
+  a automatyzacja licznika czyta stan gniazdka dokładnie wtedy, gdy druga go
+  zmienia. Kolejność nie jest gwarantowana: licznik zaliczał godzinę, której
+  nie było, albo gubił tę, która była (w modelu ok. 4% przejść). Zgubiona
+  godzina na końcu bloku uruchamia „odbudowę okna” i dokłada droższe godziny
+  (na cenach z fixture: 7 h zamiast 5, dodatkowe 22:00 i 23:00 po 0,77 i 0,72
+  PLN/kWh przy średniej planu 0,645). Rzadziej gniazdko włączało się na
+  chwilę i znów wyłączało. Każdy nowy wyzwalacz zeruje odliczanie, więc
+  przełączenie następuje 10 s po ostatnim zdarzeniu, a nie w tej samej
+  sekundzie. Zastępuje to `mode: queued` z 2.1.11.
+- **Wpisy w Dzienniku z powodem przełączenia.** Przy każdym włączeniu
+  i wyłączeniu (`logbook.log`): stan okna, cena, próg i wyzwalacz. Kolejny
+  incydent da się wtedy przypisać do konkretnej reguły, a nie zgadywać.
+- **Testy.** Pusta odpowiedź nie kasuje danych; wybór źródła po dacie (stan
+  przed i po odświeżeniu pliku jest identyczny w każdej godzinie); brak cen
+  nie zmienia przełącznika; ponawianie pobrania; strażnik; renderowanie
+  wszystkich szablonów z automatyzacji; **zgodność progów `Tariff` z
+  `sensor.tge_v2_reguly`** (rozjazd byłby cichy); model wyścigu
+  (`tests/race_model.py`), który dla automatyzacji z repo nie znajduje ani
+  jednego błędu, a bez opóźnienia je znajduje.
+
+Co wkleić w HA (poza aktualizacją dodatku): `tgerdn_v2.yaml` do
+`/config/packages/` i `tgerdn_v2_automation.yaml` w miejsce dotychczasowych
+automatyzacji `tge_v2_*` w `automations.yaml` (jest nowa:
+`tge_v2_charging_watchdog`). Potem zrestartuj HA (zmiana `command_line`).
+
 ## 2.1.12
 
 - **Sensory cen z `availability` zamiast stanu `'unavailable'`.**

@@ -5,6 +5,8 @@
 #  Zasada:
 #    ON  -> jestesmy w oknie najtańszych godzin LUB cena spadla ponizej progu
 #    OFF -> wyszliśmy z okna I cena jest wysoka (histereza)
+#    BRAK CEN -> przelacznik zostaje, jaki jest; po 2 h bez cen wylacza go
+#                strażnik (tge_v2_charging_watchdog)
 #
 #  Okno = N najtańszych godzin calego dnia (liczy Python, plan w pliku JSON).
 #  Dzieki temu przelacznik nie skacze miedzy godzinami, a dobowy limit
@@ -19,19 +21,36 @@
   description: >
     Włącza ładowanie w najtańszych godzinach doby. Dodatkowo włącza
     ładowanie, gdy cena spadnie poniżej progu histerezy, i wyłącza, gdy
-    cena wzrośnie powyżej górnego progu poza oknem.
+    cena wzrośnie powyżej górnego progu poza oknem. Gdy nie ma aktualnych
+    cen, nie rusza przełącznika. Każde przełączenie zostawia wpis w Dzienniku
+    z powodem.
   triggers:
     - trigger: state
+      id: stan
       entity_id:
         - sensor.tge_v2_aktualna_cena
         - binary_sensor.tge_v2_najtansze_5h
         - input_number.tge_v2_ladowane_godziny
     - trigger: time_pattern
+      id: godzina
       minutes: '0'
     - trigger: homeassistant
+      id: start
       event: start
   conditions: []
   actions:
+    # O pelnej godzinie w tej samej sekundzie zmieniaja sie cena, okno i licznik
+    # godzin, a druga automatyzacja czyta stan przelacznika. Kolejnosc tych
+    # zdarzen nie jest gwarantowana, wiec decyzje podejmujemy dopiero, gdy sie
+    # ustaly: `mode: restart` zeruje odliczanie przy kazdym nowym wyzwalaczu,
+    # a decyzja zapada 10 s po ostatnim. Akcje sa idempotentne.
+    - delay: '00:00:10'
+    # Bez aktualnych cen (restart HA, brak pliku, dane z innej doby) nic nie
+    # robimy - przelacznik zostaje w obecnym stanie. Po 2 h bez cen wylaczy go
+    # tge_v2_charging_watchdog.
+    - condition: template
+      value_template: >-
+        {{ states('sensor.tge_v2_aktualna_cena') not in ['unknown', 'unavailable', 'none', ''] }}
     - choose:
         - conditions:
             - condition: template
@@ -48,24 +67,64 @@
             - action: switch.turn_on
               target:
                 entity_id: switch.0xb40ecfd05e500000
+            - action: logbook.log
+              continue_on_error: true
+              data:
+                name: Ładowanie auta (TGE)
+                entity_id: switch.0xb40ecfd05e500000
+                message: >-
+                  włączam: okno {{ states('binary_sensor.tge_v2_najtansze_5h') }},
+                  cena {{ states('sensor.tge_v2_aktualna_cena') }} PLN/kWh
+                  (próg włączenia {{ state_attr('sensor.tge_v2_reguly', 'charge_below') }}),
+                  wyzwalacz {{ trigger.id }}
         - conditions:
             - condition: template
               value_template: >-
                 {{ not is_state('binary_sensor.tge_v2_najtansze_5h', 'on')
-                    and (states('sensor.tge_v2_aktualna_cena') in ['unknown', 'unavailable', 'none']
-                        or states('sensor.tge_v2_aktualna_cena') | float(-999)
-                           >= state_attr('sensor.tge_v2_reguly', 'stop_above') | float(0.5))
+                    and states('sensor.tge_v2_aktualna_cena') | float(-999)
+                        >= state_attr('sensor.tge_v2_reguly', 'stop_above') | float(0.5)
                     and is_state('switch.0xb40ecfd05e500000', 'on') }}
           sequence:
             - action: switch.turn_off
               target:
                 entity_id: switch.0xb40ecfd05e500000
-  # O pelnej godzinie kilka triggerow przychodzi w tej samej sekundzie
-  # (time_pattern, nowa cena, zmiana okna, licznik godzin). Przy `single`
-  # HA odrzuca kolejne ("Already running"), a odrzucony run mogl widziec
-  # juz nowy stan okna. Akcje sa idempotentne, wiec kolejkujemy.
-  mode: queued
-  max: 10
+            - action: logbook.log
+              continue_on_error: true
+              data:
+                name: Ładowanie auta (TGE)
+                entity_id: switch.0xb40ecfd05e500000
+                message: >-
+                  wyłączam: okno {{ states('binary_sensor.tge_v2_najtansze_5h') }},
+                  cena {{ states('sensor.tge_v2_aktualna_cena') }} PLN/kWh
+                  (próg wyłączenia {{ state_attr('sensor.tge_v2_reguly', 'stop_above') }}),
+                  wyzwalacz {{ trigger.id }}
+  mode: restart
+
+- id: tge_v2_charging_watchdog
+  alias: Ładowanie auta - brak cen TGE
+  description: >
+    Gdy ceny są niedostępne nieprzerwanie przez 2 godziny (dodatek nie
+    dostarcza aktualnych danych), wyłącza ładowanie. Krótsze przerwy
+    (restart HA, chwilowy błąd pobierania) automatyzacja ładowania przeczekuje
+    bez ruszania przełącznika.
+  triggers:
+    - trigger: state
+      entity_id: sensor.tge_v2_aktualna_cena
+      to: unavailable
+      for: '02:00:00'
+  conditions: []
+  actions:
+    - action: switch.turn_off
+      target:
+        entity_id: switch.0xb40ecfd05e500000
+    - action: logbook.log
+      continue_on_error: true
+      data:
+        name: Ładowanie auta (TGE)
+        entity_id: switch.0xb40ecfd05e500000
+        message: >-
+          wyłączam: brak aktualnych cen od 2 godzin (sprawdź dodatek TGE RDN)
+  mode: single
 
 - id: tge_v2_charging_counter
   alias: Licznik godzin ładowania (TGE)
