@@ -33,7 +33,8 @@ HA
   template      sensor.tge_v2_reguly (progi), sensor.tge_v2_aktualna_cena,
                 binary_sensor.tge_v2_najtansze_5h (_jutro)
   input_number  tge_v2_ladowane_godziny (licznik godzin ładowania)
-  automatyzacje tge_v2_charging_car (przełącznik), tge_v2_charging_counter
+  automatyzacje tge_v2_charging_car (przełącznik), tge_v2_charging_counter,
+                tge_v2_charging_watchdog (po 2 h bez cen wyłącza przełącznik)
 ```
 
 Moduły: `config.py` (Tariff, Settings, zmienne `TGERDN_*`), `model.py`,
@@ -70,10 +71,18 @@ Pełna lista z kontekstem: `MIGRACJA.md`, sekcja „Pułapki”. Najważniejsze:
 - Literówka w `entity_id` w szablonie: `states()` zwraca `unknown`,
   a `| float(0)` zamienia to po cichu w 0. Testy referencji tego pilnują.
 - **Tryb automatyzacji:** o pełnej godzinie kilka triggerów przychodzi
-  w tej samej sekundzie (time_pattern, cena, okno, licznik). `mode: single`
-  daje w logach „Already running” i gubi wywołania. Automatyzacje reagujące
-  na stan powinny mieć `queued` (akcje idempotentne).
-- Ceny na jutro TGE publikuje około 12:00, więc „Brak danych” rano to norma.
+  w tej samej sekundzie (time_pattern, cena, okno, licznik), a kolejność nie
+  jest gwarantowana. `single` gubi wywołania („Already running”), `queued`
+  daje każdemu zdarzeniu własną decyzję na stanie z tej chwili (wyścig
+  z licznikiem). Automatyzacja ładowania ma `mode: restart` + `delay: 10 s`
+  (decyzja po ustaniu zdarzeń, akcje idempotentne). Pilnuje tego
+  `tests/test_ha_race.py` (model w `tests/race_model.py`).
+- **Brak danych ≠ wyłącz.** Bez ceny (`unknown`/`unavailable`) automatyzacja
+  nic nie robi; po 2 h wyłącza `tge_v2_charging_watchdog`. Szablony wybierają
+  plik po `day` (dziś albo `tomorrow.json` po północy), nie po nazwie pliku.
+- TGE publikuje godzinowe Fixing I od 10:30; dodatek pobiera o 00:01 i 12:01,
+  więc „Brak danych” na jutro do 12:01 to norma. Po porażce pobranie jest
+  ponawiane (`cli.RETRY_DELAYS`).
 
 Przy nowej pułapce dodaj ją do `MIGRACJA.md` i zakoduj w teście
 `tests/test_ha_*.py`, jeśli da się ją sprawdzić statycznie.
