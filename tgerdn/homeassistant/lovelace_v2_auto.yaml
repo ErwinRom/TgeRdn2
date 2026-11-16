@@ -1,0 +1,109 @@
+# =============================================================================
+#  TGE RDN v2 - godziny ladowania na widok auta
+# =============================================================================
+#
+#  Dwie sekcje (dzis i jutro, obok siebie) do wklejenia NAD sekcja z karta
+#  auta w widoku "sections". Karty auta nie ruszamy. Przyklad:
+#
+#      views:
+#        - type: sections
+#          sections:
+#            <- tutaj wklej obie sekcje z "sections:" ponizej
+#            - type: grid
+#              cards:
+#                - type: custom:stellantis-vehicle-card   (bez zmian)
+#              column_span: 4
+#
+#  Obie sekcje maja column_span: 2, wiec przy szerokim ekranie leza obok
+#  siebie, a przy waskim jedna pod druga.
+#  Wymaga encji z lovelace_v2.yaml: sensor.tge_v2_ceny_dzis / _jutro
+#  i binary_sensor.tge_v2_najtansze_5h.
+# =============================================================================
+
+sections:
+  - type: grid
+    column_span: 2
+    cards:
+      - type: markdown
+        text_only: true
+        content: |-
+              {%- set date = now().strftime('%Y-%m-%d') -%}
+              {%- set src = 'sensor.tge_v2_ceny_dzis' if state_attr('sensor.tge_v2_ceny_dzis', 'day') == date else 'sensor.tge_v2_ceny_jutro' -%}
+              {%- set plan = state_attr(src, 'plan') -%}
+              {%- set now_hour = now().hour -%}
+              {%- set window = states('binary_sensor.tge_v2_najtansze_5h') -%}
+              {%- set state_text = '<font color="#3DDC84"><b>LADUJEMY</b></font>' if window == 'on' else ('poza oknem' if window == 'off' else '') -%}
+              {%- if state_attr(src, 'day') != date or state_attr(src, 'data_fetched') is not true or plan is not mapping -%}
+              <ha-icon icon="mdi:calendar-today"></ha-icon> <b>Dziś, {{ now().strftime('%d.%m.%Y') }}</b><br><small>Plan niedostępny - czekamy na dane z dodatku TGE RDN.</small>
+              {%- else -%}
+              {%- set hours = plan.get('hours', []) | sort -%}
+              {%- set ns = namespace(blocks=[], start=none, prev=none) -%}
+              {%- for h in hours -%}
+                {%- if ns.prev is none or h != ns.prev + 1 -%}
+                  {%- if ns.start is not none -%}
+                    {%- set ns.blocks = ns.blocks + [[ns.start, ns.prev]] -%}
+                  {%- endif -%}
+                  {%- set ns.start = h -%}
+                {%- endif -%}
+                {%- set ns.prev = h -%}
+              {%- endfor -%}
+              {%- if ns.start is not none -%}
+                {%- set ns.blocks = ns.blocks + [[ns.start, ns.prev]] -%}
+              {%- endif -%}
+              <ha-icon icon="mdi:calendar-today"></ha-icon> <b>Dziś, {{ now().strftime('%d.%m.%Y') }}</b>{% if state_text %} - {{ state_text }}{% endif %}<br>
+              <small>{%- for b in ns.blocks -%}{{ '%02d:00-%02d:00' | format(b[0] - 1, b[1]) }}{{ ' &middot; ' if not loop.last else '' }}{%- endfor -%}</small>
+              <table role="presentation" width="100%">
+              {%- for row in range(2) -%}
+                <tr>
+                {%- for c in range(12) -%}
+                  {%- set h = row * 12 + c -%}
+                  {%- set on = (h + 1) in hours -%}
+                  {%- set fg = '#3DDC84' if on else ('#E5E7EB' if h == now_hour else '#4B5563') -%}
+                  <td align="center"><font color="{{ fg }}" size="5">{{ '●' if h == now_hour else '■' }}</font><br><small>{{ '%02d' | format(h) }}</small></td>
+                {%- endfor -%}
+                </tr>
+              {%- endfor -%}
+              </table>
+              {%- endif -%}
+  - type: grid
+    column_span: 2
+    cards:
+      - type: markdown
+        text_only: true
+        content: |-
+              {%- set date = (now() + timedelta(days=1)).strftime('%Y-%m-%d') -%}
+              {%- set src = 'sensor.tge_v2_ceny_jutro' -%}
+              {%- set plan = state_attr(src, 'plan') -%}
+              {%- set now_hour = -1 -%}
+              {%- if state_attr(src, 'day') != date or state_attr(src, 'data_fetched') is not true or plan is not mapping -%}
+              <ha-icon icon="mdi:calendar-arrow-right"></ha-icon> <b>Jutro, {{ (now() + timedelta(days=1)).strftime('%d.%m.%Y') }}</b><br><small>Plan jeszcze niedostępny - TGE publikuje ceny około 12:00.</small>
+              {%- else -%}
+              {%- set hours = plan.get('hours', []) | sort -%}
+              {%- set ns = namespace(blocks=[], start=none, prev=none) -%}
+              {%- for h in hours -%}
+                {%- if ns.prev is none or h != ns.prev + 1 -%}
+                  {%- if ns.start is not none -%}
+                    {%- set ns.blocks = ns.blocks + [[ns.start, ns.prev]] -%}
+                  {%- endif -%}
+                  {%- set ns.start = h -%}
+                {%- endif -%}
+                {%- set ns.prev = h -%}
+              {%- endfor -%}
+              {%- if ns.start is not none -%}
+                {%- set ns.blocks = ns.blocks + [[ns.start, ns.prev]] -%}
+              {%- endif -%}
+              <ha-icon icon="mdi:calendar-arrow-right"></ha-icon> <b>Jutro, {{ (now() + timedelta(days=1)).strftime('%d.%m.%Y') }}</b><br>
+              <small>{%- for b in ns.blocks -%}{{ '%02d:00-%02d:00' | format(b[0] - 1, b[1]) }}{{ ' &middot; ' if not loop.last else '' }}{%- endfor -%}</small>
+              <table role="presentation" width="100%">
+              {%- for row in range(2) -%}
+                <tr>
+                {%- for c in range(12) -%}
+                  {%- set h = row * 12 + c -%}
+                  {%- set on = (h + 1) in hours -%}
+                  {%- set fg = '#3DDC84' if on else ('#E5E7EB' if h == now_hour else '#4B5563') -%}
+                  <td align="center"><font color="{{ fg }}" size="5">{{ '●' if h == now_hour else '■' }}</font><br><small>{{ '%02d' | format(h) }}</small></td>
+                {%- endfor -%}
+                </tr>
+              {%- endfor -%}
+              </table>
+              {%- endif -%}

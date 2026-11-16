@@ -8,6 +8,7 @@ Trzy pliki do wklejenia, w kolejności:
 | `tgerdn_v2.yaml` | encje `command_line`, `input_number`, szablony | katalog `packages/` (patrz niżej) |
 | `tgerdn_v2_automation.yaml` | ładowanie auta + licznik godzin + strażnik braku cen | `automations.yaml` (główny) |
 | `lovelace_v2.yaml` | karty | dashboard (widok) |
+| `lovelace_v2_auto.yaml` | sekcje | dwie sekcje z godzinami ładowania nad kartę auta |
 
 `tgerdn_v2.yaml` jest generowany przez `tools/generate_ha_config.py` —
 zmiany wprowadzaj w generatorze, nie w pliku.
@@ -133,9 +134,12 @@ bo to Python liczy plan, a HA tylko go odtwarza.
 `lovelace_v2.yaml` zawiera dwa widoki:
 
 * **Kompas Energetyczny** — siatka 24 godzin na dziś i jutro (kolor = cena
-  z marginesem), wskaźnik ceny bieżącej, **plan ładowania** (okno, koszt
-  20 kWh, oszczędność, ile godzin już naładowane) i wskaźniki poboru prądu.
+  z marginesem), wskaźnik ceny bieżącej, **plan ładowania na dziś i na jutro** (okna z godzinami, średnia cena
+  okna, oszczędność, ile godzin już naładowane, pasek 24 h) i wskaźniki poboru prądu.
 * **Ceny Energii** — dwa wykresy apexcharts (dziś / jutro).
+
+Osobny `lovelace_v2_auto.yaml` to dwie sekcje (dziś i jutro obok siebie) z
+oknami i paskiem 24 h, do wklejenia nad kartę auta we własnym widoku.
 
 Makro `price_cell` jest zdefiniowane dwa razy (raz na kartę) — Lovelace nie
 pozwala dzielić makr między kartami.

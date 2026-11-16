@@ -5,6 +5,29 @@ i `io.hass.version` w `Dockerfile` (muszą być zgodne), a tutaj trafia
 opis zmian. Supervisor HA porównuje `version` przy aktualizacji dodatku —
 bez zmiany numeru HA nie pobierze nowej wersji.
 
+## 2.1.14
+
+Karta „Plan ładowania” pokazywała okno tylko na dzisiaj, choć plan na jutro
+jest w `sensor.tge_v2_ceny_jutro` od momentu pobrania cen (ok. 12:00).
+
+- **Okna ładowania na dziś i jutro.** Każda doba ma swoją sekcję: okna
+  złożone z kolejnych godzin (`02:00-05:00 (3 h, śr. 0.695)`), stan
+  (tylko dziś), suma godzin, najtańsza / najdroższa, średnia doby,
+  oszczędność oraz pasek 24 godzin z zaznaczonymi godzinami ładowania
+  i bieżącą godziną. Sekcja jutra pokazuje komunikat, dopóki TGE nie
+  opublikuje cen.
+- **Źródło „dzisiaj” wybierane po dacie**, jak w pakiecie: po północy,
+  zanim dodatek odświeży `today.json`, karta bierze plan z `tomorrow.json`.
+  Sekcja jutra sprawdza `day`, więc nie pokaże wczorajszych danych jako jutrzejszych.
+- **Siatka godzin** w kartach „Dzisiaj” i „Jutro” oznacza godziny ładowania
+  małym symbolem 🚗 (podpowiedź po najechaniu: „ładowanie”).
+- **Sekcje do widoku auta** (`lovelace_v2_auto.yaml`): dwie sekcje
+  `column_span: 2` (dziś i jutro, obok siebie) z oknami i paskiem 24 h, do
+  wklejenia nad kartę auta. Pliku nie wolno uzupełniać o encję pojazdu
+  (zawiera VIN, repo jest publiczne).
+- Zmiana wyłącznie w `lovelace_v2.yaml`: wklej kartę do dashboardu,
+  nic nie trzeba przeładowywać ani restartować.
+
 ## 2.1.13
 
 Zmiany z przeglądu logiki sterowania. Przegląd oparto na modelu o pełnej

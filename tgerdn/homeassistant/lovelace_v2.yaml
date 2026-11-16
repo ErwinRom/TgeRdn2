@@ -54,6 +54,8 @@ views:
                     {%- if cell and is_number(cell.total) -%}
                       {%- set price = cell.total | float -%}
                     {%- endif -%}
+                    {%- set plan = state_attr(entity_id, 'plan') -%}
+                    {%- set planned = (hour + 1) in (plan.get('hours', []) if plan is mapping else []) -%}
                     {%- set fg = '#9CA3AF' -%}
                   {%- if price is not none %}
                     {%- if price < 0.50 %}
@@ -71,10 +73,10 @@ views:
                     {%- endif %}
                   {%- endif %}
                     <td align="center"
-                        title="{{ '%.2f'|format(price) if price is not none else 'Brak danych' }} PLN/kWh">
+                        title="{{ '%.2f'|format(price) if price is not none else 'Brak danych' }} PLN/kWh{{ ' - ladowanie' if planned else '' }}">
                       <b>
                         <font color="{{ fg }}" size="5">
-                          {{ "%02d"|format(hour) }}:00
+                          {{ "%02d"|format(hour) }}:00{% if planned %}<font size="3">&#128663;</font>{% endif %}
                         </font>
                       </b>
                     </td>
@@ -151,6 +153,8 @@ views:
                     {%- if cell and is_number(cell.total) -%}
                       {%- set price = cell.total | float -%}
                     {%- endif -%}
+                    {%- set plan = state_attr(entity_id, 'plan') -%}
+                    {%- set planned = (hour + 1) in (plan.get('hours', []) if plan is mapping else []) -%}
                     {%- set fg = '#9CA3AF' -%}
                   {%- if price is not none %}
                     {%- if price < 0.50 %}
@@ -164,10 +168,10 @@ views:
                     {%- endif %}
                   {%- endif %}
                     <td align="center"
-                        title="{{ '%.2f'|format(price) if price is not none else 'Brak danych' }} PLN/kWh">
+                        title="{{ '%.2f'|format(price) if price is not none else 'Brak danych' }} PLN/kWh{{ ' - ladowanie' if planned else '' }}">
                       <b>
                         <font color="{{ fg }}" size="5">
-                          {{ "%02d"|format(hour) }}:00
+                          {{ "%02d"|format(hour) }}:00{% if planned %}<font size="3">&#128663;</font>{% endif %}
                         </font>
                       </b>
                     </td>
@@ -255,50 +259,76 @@ views:
                   - unknown
           - type: markdown
             title: Plan ładowania
-            content: >
-              {% set plan = state_attr('sensor.tge_v2_ceny_dzis', 'plan') %}
-              {% set window_ok = states('binary_sensor.tge_v2_najtansze_5h') in ['on', 'off'] %}
-              {% if plan is not mapping or not window_ok %}
-              <center><ha-icon icon="mdi:timer-sand"></ha-icon>
-              <b>Plan ładowania niedostępny</b><br>
-              <small>
-              {%- if plan is not mapping %} Brak planu w sensor.tge_v2_ceny_dzis.{% endif %}
-              {%- if not window_ok %} Encja binary_sensor.tge_v2_najtansze_5h niedostępna.{% endif %}
-              Czekamy na dane.</small></center>
-              {% else %}
-              {% set periods = plan.get('periods', []) %}
-              {% set charged = state_attr('binary_sensor.tge_v2_najtansze_5h', 'charged_hours') %}
-              {% set missing = state_attr('binary_sensor.tge_v2_najtansze_5h', 'missing_hours') %}
-              {% set in_window = is_state('binary_sensor.tge_v2_najtansze_5h', 'on') %}
+            content: |-
+              {%- macro plan_day(icon, label, date, src, now_hour, state_text, charged, missing, empty_text) -%}
+              {%- set plan = state_attr(src, 'plan') -%}
+              {%- if state_attr(src, 'day') != date or state_attr(src, 'data_fetched') is not true or plan is not mapping -%}
+              <ha-icon icon="{{ icon }}"></ha-icon> <b>{{ label }}</b><br><small>{{ empty_text }}</small>
+              {%- else -%}
+              {%- set hours = plan.get('hours', []) | sort -%}
+              {%- set prices = state_attr(src, 'fixing_i_prices') or [] -%}
+              {%- set ns = namespace(blocks=[], start=none, prev=none) -%}
+              {%- for h in hours -%}
+                {%- if ns.prev is none or h != ns.prev + 1 -%}
+                  {%- if ns.start is not none -%}
+                    {%- set ns.blocks = ns.blocks + [[ns.start, ns.prev]] -%}
+                  {%- endif -%}
+                  {%- set ns.start = h -%}
+                {%- endif -%}
+                {%- set ns.prev = h -%}
+              {%- endfor -%}
+              {%- if ns.start is not none -%}
+                {%- set ns.blocks = ns.blocks + [[ns.start, ns.prev]] -%}
+              {%- endif -%}
+              <ha-icon icon="{{ icon }}"></ha-icon> <b>{{ label }}</b>
               <table role="presentation" width="100%">
-              <tr>
-              <td>Okno ładowania:</td>
-              <td><b>{{ periods | join(', ') }}</b></td>
-              </tr>
-              <tr>
-              <td>Stan:</td>
-              <td><b>{{ 'LADUJEMY' if in_window else 'poza oknem' }}</b></td>
-              </tr>
-              <tr>
-              <td>Naładowane godziny:</td>
-              <td>{{ charged | default(0, true) }} h
-              {%- if missing | int(0) > 0 %} (brakuje {{ missing }}){% endif %}</td>
-              </tr>
-              <tr>
-              <td>Najtańsza / najdroższa:</td>
-              <td>{{ '%.3f'|format(plan.get('cheapest_price') | float(0)) }} /
-              {{ '%.3f'|format(plan.get('dearest_price') | float(0)) }} PLN/kWh</td>
-              </tr>
-              <tr>
-              <td>Średnia doby:</td>
-              <td>{{ '%.3f'|format(plan.get('day_avg') | float(0)) }} PLN/kWh</td>
-              </tr>
-              <tr>
-              <td>Oszczędność w oknie:</td>
-              <td>{{ '%.3f'|format(plan.get('saving') | float(0)) }} PLN/kWh</td>
-              </tr>
+              <tr><td>Okna ładowania:</td><td>
+              {%- for b in ns.blocks -%}
+                {%- set vals = prices | selectattr('hour', 'ge', b[0]) | selectattr('hour', 'le', b[1]) | map(attribute='total') | list -%}
+                <b>{{ '%02d:00-%02d:00' | format(b[0] - 1, b[1]) }}</b> <small>({{ b[1] - b[0] + 1 }} h{% if vals | length > 0 %}, śr. {{ '%.3f' | format(vals | sum / vals | length) }}{% endif %})</small><br>
+              {%- endfor -%}
+              </td></tr>
+              {%- if state_text %}
+              <tr><td>Stan:</td><td><b>{{ state_text }}</b></td></tr>
+              {%- endif %}
+              <tr><td>Suma:</td><td>{{ plan.get('count', hours | length) }} h
+              {%- if charged is not none %} (naładowane {{ charged }} h
+                {%- if missing | int(0) > 0 %}, brakuje {{ missing }}{% endif %}){% endif %}</td></tr>
+              <tr><td>Najtańsza / najdroższa:</td><td>{{ '%.3f' | format(plan.get('cheapest_price') | float(0)) }} / {{ '%.3f' | format(plan.get('dearest_price') | float(0)) }} PLN/kWh</td></tr>
+              <tr><td>Średnia doby:</td><td>{{ '%.3f' | format(plan.get('day_avg') | float(0)) }} PLN/kWh</td></tr>
+              <tr><td>Oszczędność w oknie:</td><td>{{ '%.3f' | format(plan.get('saving') | float(0)) }} PLN/kWh</td></tr>
               </table>
-              {% endif %}
+              <table role="presentation" width="100%">
+              {%- for row in range(2) -%}
+                <tr>
+                {%- for c in range(12) -%}
+                  {%- set h = row * 12 + c -%}
+                  {%- set on = (h + 1) in hours -%}
+                  {%- set fg = '#3DDC84' if on else ('#E5E7EB' if h == now_hour else '#4B5563') -%}
+                  <td align="center"><font color="{{ fg }}" size="5">{{ '●' if h == now_hour else '■' }}</font><br><small>{{ '%02d' | format(h) }}</small></td>
+                {%- endfor -%}
+                </tr>
+              {%- endfor -%}
+              </table>
+              {%- endif -%}
+              {%- endmacro -%}
+              {%- set today = now().strftime('%Y-%m-%d') -%}
+              {%- set tomorrow = (now() + timedelta(days=1)).strftime('%Y-%m-%d') -%}
+              {%- set today_src = 'sensor.tge_v2_ceny_dzis' if state_attr('sensor.tge_v2_ceny_dzis', 'day') == today else 'sensor.tge_v2_ceny_jutro' -%}
+              {%- set window = states('binary_sensor.tge_v2_najtansze_5h') -%}
+              {%- set window_ok = window in ['on', 'off'] -%}
+              {{ plan_day('mdi:calendar-today', 'Dziś, ' ~ now().strftime('%d.%m.%Y'), today, today_src, now().hour,
+                          ('LADUJEMY' if window == 'on' else 'poza oknem') if window_ok else '',
+                          state_attr('binary_sensor.tge_v2_najtansze_5h', 'charged_hours') if window_ok else none,
+                          state_attr('binary_sensor.tge_v2_najtansze_5h', 'missing_hours') if window_ok else 0,
+                          'Plan niedostępny - czekamy na dane z dodatku TGE RDN.') }}
+              <hr>
+              {{ plan_day('mdi:calendar-arrow-right', 'Jutro, ' ~ (now() + timedelta(days=1)).strftime('%d.%m.%Y'), tomorrow, 'sensor.tge_v2_ceny_jutro', -1, '', none, 0,
+                          'Plan jeszcze niedostępny - TGE publikuje ceny około 12:00.') }}
+              <hr>
+              <small><font color="#3DDC84">■</font> ładowanie&nbsp;&nbsp;
+              <font color="#4B5563">■</font> poza oknem&nbsp;&nbsp;
+              <font color="#E5E7EB">●</font> teraz</small>
             text_only: true
       - type: grid
         cards:

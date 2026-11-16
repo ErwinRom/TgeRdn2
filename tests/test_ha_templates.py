@@ -328,3 +328,112 @@ def test_przelacznik_nie_jest_tlyiony_gdy_juz_wlaczony(ha_config, payload):
     ha_config.render_entities(states, moment)
     states['sensor.tge_v2_reguly']['attributes']['max_charge_price'] = '0.01'
     assert ha_config.render_condition(ha_config.turn_off_template, states, moment) is True
+
+
+def _plan_card_output(ha_config, today_payload, tomorrow_payload, hour=10):
+    from tgerdn.simulate import build_env
+
+    lovelace = yaml.safe_load(
+        (ha_config.ha_dir / 'lovelace_v2.yaml').read_text(encoding='utf-8'))
+    card = next(c for c in _markdown_cards(lovelace) if c.get('title') == 'Plan ładowania')
+    moment = DAY.replace(hour=hour)
+    states = build_states(today_payload, tomorrow_payload, charged=2)
+    ha_config.render_entities(states, moment)
+    return build_env(states, moment).from_string(card['content']).render()
+
+
+def test_karta_planu_pokazuje_okna_na_dzis_i_jutro(ha_config, payload):
+    import copy
+    from tgerdn.planner import Plan
+
+    tomorrow = copy.deepcopy(payload)
+    tomorrow['day'] = '2026-10-22'
+    out = _plan_card_output(ha_config, payload, tomorrow)
+    assert 'Dziś, 21.10.2026' in out
+    assert 'Jutro, 22.10.2026' in out
+    # okna scalone z kolejnych godzin planu, w obu sekcjach
+    hours = sorted(payload['plan']['hours'])
+    first = hours[0]
+    assert out.count(f'{first - 1:02d}:00-') == 2
+    assert '\n\n' not in out
+    assert out.count('Okna ładowania') == 2
+    assert Plan.period_for(first).split('-')[0] in out
+
+
+def test_karta_planu_jutro_bez_danych(ha_config, payload):
+    from tgerdn.config import Tariff
+    from tgerdn.publisher import empty_payload
+
+    empty = empty_payload('2026-10-22', Tariff(), label='tomorrow')
+    out = _plan_card_output(ha_config, payload, empty)
+    assert 'Dziś, 21.10.2026' in out
+    assert out.count('Okna ładowania') == 1
+    assert 'Plan jeszcze niedostępny' in out
+
+
+def test_karta_planu_nie_pokazuje_dzisiejszych_cen_jako_jutrzejszych(ha_config, payload):
+    """tomorrow.json sprzed odswiezenia ma day == dzisiaj, nie jutro."""
+    out = _plan_card_output(ha_config, payload, payload)
+    assert 'Plan jeszcze niedostępny' in out
+
+
+def test_siatka_godzin_oznacza_godziny_ladowania(ha_config, payload):
+    from tgerdn.simulate import build_env
+
+    lovelace = yaml.safe_load(
+        (ha_config.ha_dir / 'lovelace_v2.yaml').read_text(encoding='utf-8'))
+    moment = DAY.replace(hour=10)
+    states = build_states(payload, payload)
+    ha_config.render_entities(states, moment)
+    for entity_id in ('sensor.tge_v2_ceny_dzis', 'sensor.tge_v2_ceny_jutro'):
+        states[entity_id]['last_updated'] = moment
+    env = build_env(states, moment)
+    grids = [c for c in _markdown_cards(lovelace) if 'price_cell' in c['content']]
+    assert len(grids) == 2
+    for card in grids:
+        out = env.from_string(card['content']).render()
+        assert out.count('&#128663;') == len(payload['plan']['hours'])
+
+
+def _auto_cards(ha_config):
+    lovelace = yaml.safe_load(
+        (ha_config.ha_dir / 'lovelace_v2_auto.yaml').read_text(encoding='utf-8'))
+    sections = lovelace['sections']
+    assert [s['column_span'] for s in sections] == [2, 2]
+    return [s['cards'][0] for s in sections]
+
+
+def test_sekcje_auta_renderuja_dzis_i_jutro(ha_config, payload):
+    import copy
+    from tgerdn.simulate import build_env
+
+    tomorrow = copy.deepcopy(payload)
+    tomorrow['day'] = '2026-10-22'
+    moment = DAY.replace(hour=10)
+    states = build_states(payload, tomorrow, charged=2)
+    ha_config.render_entities(states, moment)
+    today_card, tomorrow_card = _auto_cards(ha_config)
+    env = build_env(states, moment)
+    out_today = env.from_string(today_card['content']).render()
+    out_tomorrow = env.from_string(tomorrow_card['content']).render()
+    assert 'Dziś, 21.10.2026' in out_today and 'poza oknem' in out_today
+    assert 'Jutro, 22.10.2026' in out_tomorrow
+    for out in (out_today, out_tomorrow):
+        assert out.count('#3DDC84" size="5"') == len(payload['plan']['hours'])
+        assert '\n\n' not in out
+    assert '●' in out_today and '●' not in out_tomorrow
+
+
+def test_sekcje_auta_jutro_bez_danych_i_bez_encji(ha_config, payload):
+    from tgerdn.config import Tariff
+    from tgerdn.publisher import empty_payload
+    from tgerdn.simulate import build_env
+
+    moment = DAY.replace(hour=10)
+    states = build_states(payload, empty_payload('2026-10-22', Tariff(), label='tomorrow'))
+    ha_config.render_entities(states, moment)
+    today_card, tomorrow_card = _auto_cards(ha_config)
+    assert 'Plan jeszcze niedostępny' in build_env(states, moment).from_string(
+        tomorrow_card['content']).render()
+    for card in (today_card, tomorrow_card):
+        assert 'niedostępny' in build_env({}, moment).from_string(card['content']).render()
